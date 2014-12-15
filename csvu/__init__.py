@@ -2,9 +2,9 @@
 
 
 __all__ = [
-            'BCSVDialect',
-            'BCSVDictReader',
-            'BCSVDictWriter',
+            'CSVUDialect',
+            'CSVUDictReader',
+            'CSVUDictWriter',
             'GetRowFunction',
             'SetRowFunction',
             'GrepFilter',
@@ -27,7 +27,7 @@ from csv import Dialect, DictReader, DictWriter, QUOTE_MINIMAL, QUOTE_NONNUMERIC
 
 
 
-class BCSVDialect(Dialect):
+class CSVUDialect(Dialect):
     doublequote = False
     escapechar = '\\'
     delimiter = ','
@@ -43,13 +43,13 @@ class BCSVDialect(Dialect):
 
 
 
-class BCSVDictReader:
+class CSVUDictReader:
 
     def __init__(self, f, 
                     fieldnames=None, 
                     restkey=None,   
                     restval=None, 
-                    dialect=BCSVDialect(), 
+                    dialect=CSVUDialect(), 
                     filter=None,
                     *args, 
                     **kwds):
@@ -92,10 +92,10 @@ class BCSVDictReader:
 
 
 
-class BCSVDictWriter(DictWriter):
+class CSVUDictWriter(DictWriter):
 
     def __init__(self, *args, **kwds):
-        kwds['dialect'] = BCSVDialect()
+        kwds['dialect'] = CSVUDialect()
         DictWriter.__init__(self, *args, **kwds)
 
     @classmethod
@@ -112,7 +112,7 @@ class BCSVDictWriter(DictWriter):
         return v
 
     def _dict_to_list(self, rowdict):
-        f = BCSVDictWriter._maybe_to_int
+        f = CSVUDictWriter._maybe_to_int
         return [f(rowdict[k]) for k in self.fieldnames]
              
 
