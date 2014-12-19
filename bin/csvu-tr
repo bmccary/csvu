@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+
+if __name__ == '__main__':
+
+    from csvu import CSVUDictReader, CSVUDictWriter, GrepFilter
+
+    import sys
+    import argparse
+
+    parser = argparse.ArgumentParser(description='CSVU tr is character translator like GNU tr, but for CSV files.')
+
+    parser.add_argument(
+            '--columns', 
+            required=False, 
+            type=str, 
+            nargs='+',
+            help='space-separated list of columns to *tr*'
+        )
+
+    parser.add_argument(
+            '--where', 
+            required=False, 
+            type=str, 
+            nargs=2,
+            metavar=('COL', 'REGEX'),
+            help='filter for rows to *tr*'
+        )
+
+    parser.add_argument('SET1', type=str)
+
+    parser.add_argument('SET2', type=str)
+
+    args = parser.parse_args()
+
+    print args
+
+    #reader = CSVUDictReader(f=sys.stdin)
+    #grep   = GrepFilter(col=args.column, include=args.v, regex=args.regex)
+    #writer = CSVUDictWriter(f=sys.stdout, fieldnames=reader.fieldnames)
+
+    #writer.writeheader()
+    #writer.writerows(row for row in reader if grep(row))
+
+# vim:ts=4:sw=4:et
+

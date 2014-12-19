@@ -2,22 +2,38 @@
 
 if __name__ == '__main__':
 
-    from CSVU import CSVUDictReader, CSVUDictWriter, GrepFilter
+    from csvu import CSVUDictReader, CSVUDictWriter, GrepFilter
 
     import sys
     import argparse
 
-    parser = argparse.ArgumentParser(description='CSVU Grep')
+    parser = argparse.ArgumentParser(description='CSVU grep is like GNU grep, but for CSV files.')
 
-    parser.add_argument('-v', default=True, action='store_const', const=False)
-    parser.add_argument('--column', required=True, type=str)
-    parser.add_argument('regex', type=str)
+    parser.add_argument(
+            '-v', 
+            default=True, 
+            action='store_const', 
+            const=False,
+            help='Negate'
+        )
+
+    parser.add_argument(
+        'column', 
+        type=str,
+        help='The column to grep upon.'
+        )
+
+    parser.add_argument(
+        'regex', 
+        type=str,
+        help='The regular expression (see the python re module).'
+        )
 
     args = parser.parse_args()
 
-    reader = BCSVDictReader(f=sys.stdin)
+    reader = CSVUDictReader(f=sys.stdin)
     grep   = GrepFilter(col=args.column, include=args.v, regex=args.regex)
-    writer = BCSVDictWriter(f=sys.stdout, fieldnames=reader.fieldnames)
+    writer = CSVUDictWriter(f=sys.stdout, fieldnames=reader.fieldnames)
 
     writer.writeheader()
     writer.writerows(row for row in reader if grep(row))
