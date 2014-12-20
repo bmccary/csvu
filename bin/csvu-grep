@@ -3,7 +3,6 @@
 if __name__ == '__main__':
 
     from csvu import CSVUDictReader, CSVUDictWriter, GrepFilter
-
     import sys
     import argparse
 

@@ -19,8 +19,9 @@ __all__ = [
 
 from csv import Dialect, DictReader, DictWriter, QUOTE_MINIMAL, QUOTE_NONNUMERIC, QUOTE_ALL
 
+import re
 
-
+import string
 
 
 
@@ -187,8 +188,6 @@ class BlankRowFunction:
 
 
 
-import re
-
 
 class GrepFilter:
 
@@ -214,5 +213,44 @@ class GrepFilter:
 
 
 
+class TrRowFunction:
 
+    def __init__(self, set1, set2, cols=None, where=None):
+        
+        self.cols = cols
+        self.set1 = set1
+        self.set2 = set2
+        
+        if where is None:
+            self.where = None
+        else:
+            self.where = (where[0], re.compile(where[1]))
+
+        self.table = string.maketrans(set1, set2)
+
+    def __call__(self, row):
+       
+        m = True
+ 
+        if self.where:
+            m = self.where[1].search(row[self.where[0]])
+
+        if not m:
+            return row
+
+        def maybe_tr(k, v):
+            tr = False
+            if self.cols:
+                if k in self.cols:
+                    tr = True
+            else:
+                tr = True
+            if tr:
+                return string.translate(v, self.table)
+            return v
+
+        return {k: maybe_tr(k, v) for k, v in row.iteritems()}
+           
+
+    
 
