@@ -126,19 +126,11 @@ class CSVUDictWriter(DictWriter):
 
 class GetRowFunction:
 
-    def __init__(self, columns):
-        self._meta = columns
-
-    @property
-    def meta(self):
-        return self._meta
+    def __init__(self, cols):
+        self.columns = cols
 
     def __call__(self, row):
-        return {k : row[k] for k in self.meta}
-
-
-
-
+        return {k : row[k] for k in self.cols}
 
 
 
@@ -174,21 +166,6 @@ class BlankRowFunction:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class GrepFilter:
 
     def __init__(self, col, regex, include=True):
@@ -207,37 +184,20 @@ class GrepFilter:
         else:
             return not self.include
             
-                
-        
-        
 
 
 
 class TrRowFunction:
 
-    def __init__(self, set1, set2, cols=None, where=None):
+    def __init__(self, set1, set2, cols=None):
         
-        self.cols = cols
-        self.set1 = set1
-        self.set2 = set2
-        
-        if where is None:
-            self.where = None
-        else:
-            self.where = (where[0], re.compile(where[1]))
-
+        self.cols  = cols
+        self.set1  = set1
+        self.set2  = set2
         self.table = string.maketrans(set1, set2)
 
     def __call__(self, row):
        
-        m = True
- 
-        if self.where:
-            m = self.where[1].search(row[self.where[0]])
-
-        if not m:
-            return row
-
         def maybe_tr(k, v):
             tr = False
             if self.cols:

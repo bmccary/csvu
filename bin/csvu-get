@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+
+if __name__ == '__main__':
+
+    from csv import DictReader, DictWriter, excel, excel_tab
+
+    import sys
+    import argparse
+
+    from csvu import GetRowFunction
+
+    parser = argparse.ArgumentParser(description='CSVU get is a field get-er like GNU cut, but for CSV files.')
+
+    parser.add_argument(
+            '--columns', 
+            required=False, 
+            type=str, 
+            nargs='+',
+            help='space-separated list of columns to *get*'
+        )
+
+    parser.add_argument(
+            '--dialect', 
+            default='excel', 
+            choices=['excel', 'excel-tab'],
+            help='The *excel* dialect uses commas, *excel-tab* uses tabs'
+        )
+
+    parser.add_argument(
+            'file', 
+            type=str, 
+            nargs='?', 
+            default='-',
+            help='The CSV file to translate, defaults to STDIN'
+        )
+
+    args = parser.parse_args()
+
+    f = sys.stdin
+    if args.file != '-':
+        f = open(args.file, 'r')
+
+    reader = DictReader(f, dialect=args.dialect)
+    get    = GetRowFunction(cols=args.cols)
+    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=args.dialect)
+
+    writer.writeheader()
+    writer.writerows(get(row) for row in reader)
+
