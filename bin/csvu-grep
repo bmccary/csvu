@@ -2,10 +2,11 @@
 
 if __name__ == '__main__':
 
-    from csv import DictReader, DictWriter, excel, excel_tab
+    from csv import DictReader, DictWriter, Sniffer, excel, excel_tab
     from csvu import GrepFilter
     import sys
     import argparse
+    from cStringIO import StringIO
 
     parser = argparse.ArgumentParser(description='CSVU grep is like GNU grep, but for CSV files.')
 
@@ -19,9 +20,16 @@ if __name__ == '__main__':
 
     parser.add_argument(
             '--dialect', 
-            default='excel', 
-            choices=['excel', 'excel-tab'],
-            help='The *excel* dialect uses commas, *excel-tab* uses tabs'
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab'],
+            help='''The *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
         )
 
     parser.add_argument(
@@ -50,9 +58,21 @@ if __name__ == '__main__':
     if args.file != '-':
         f = open(args.file, 'r')
 
-    reader = DictReader(f, dialect=args.dialect)
+    dialect = None
+
+    if args.dialect == 'sniff':
+        f = StringIO(f.read())
+        sample = f.read(1024)
+        f.reset()
+        dialect = Sniffer().sniff(sample)
+    elif args.dialect == 'excel':
+        dialect = excel
+    elif args.dialect == 'excel-tab':
+        dialect = excel_tab
+
+    reader = DictReader(f, dialect=dialect)
     grep   = GrepFilter(col=args.column, include=args.v, regex=args.regex)
-    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=args.dialect)
+    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=dialect)
 
     writer.writeheader()
     writer.writerows(row for row in reader if grep(row))
