@@ -11,11 +11,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CSVU grep is like GNU grep, but for CSV files.')
 
     parser.add_argument(
+            '--negate',
             '-v', 
             default=True, 
             action='store_const', 
             const=False,
-            help='Negate'
+            help='Include only non-matches.'
         )
 
     parser.add_argument(
@@ -71,7 +72,7 @@ if __name__ == '__main__':
         dialect = excel_tab
 
     reader = DictReader(f, dialect=dialect)
-    grep   = GrepFilter(col=args.column, include=args.v, regex=args.regex)
+    grep   = GrepFilter(col=args.column, include=args.negate, regex=args.regex)
     writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=dialect)
 
     writer.writeheader()
