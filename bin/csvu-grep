@@ -7,6 +7,11 @@ if __name__ == '__main__':
     import sys
     import argparse
     from cStringIO import StringIO
+    import re
+
+    #
+    # Command-line argument processing.
+    #
 
     parser = argparse.ArgumentParser(description='CSVU grep is like GNU grep, but for CSV files.')
 
@@ -55,15 +60,25 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    #
+    # The CSV file to grep.
+    #
+
     f = sys.stdin
+
     if args.file != '-':
         f = open(args.file, 'r')
+
+    #
+    # The dialect of CSV file.
+    #
 
     dialect = None
 
     if args.dialect == 'sniff':
+        # reads the entire file into memory.
         f = StringIO(f.read())
-        sample = f.read(1024)
+        sample = f.read()
         f.reset()
         dialect = Sniffer().sniff(sample)
     elif args.dialect == 'excel':
@@ -71,7 +86,24 @@ if __name__ == '__main__':
     elif args.dialect == 'excel-tab':
         dialect = excel_tab
 
+    #
+    # Sanity checks.
+    #
+
     reader = DictReader(f, dialect=dialect)
+
+    if not args.column in reader.fieldnames:
+        parser.error("Column '{}' does not appear in the data.".format(args.column))
+
+    try:
+        regex = re.compile(args.regex)
+    except:
+        parser.error("Cannot compile regex '{}', see python *re* module.".format(args.regex))
+
+    #
+    # The actual computation.
+    #    
+
     grep   = GrepFilter(col=args.column, include=args.negate, regex=args.regex)
     writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=dialect)
 

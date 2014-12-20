@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
             '--columns', 
-            required=False, 
+            required=True, 
             type=str, 
             nargs='+',
             help='space-separated list of columns to *get*'
@@ -41,8 +41,14 @@ if __name__ == '__main__':
         f = open(args.file, 'r')
 
     reader = DictReader(f, dialect=args.dialect)
-    get    = GetRowFunction(cols=args.cols)
-    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=args.dialect)
+
+    for c in args.columns:
+        if not c in reader.fieldnames:
+            sys.stderr.write('{} is not a column\n'.format(c))
+            sys.exit(-1)
+
+    get    = GetRowFunction(cols=args.columns)
+    writer = DictWriter(f=sys.stdout, fieldnames=args.columns, dialect=args.dialect)
 
     writer.writeheader()
     writer.writerows(get(row) for row in reader)

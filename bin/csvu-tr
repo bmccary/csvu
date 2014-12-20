@@ -2,12 +2,15 @@
 
 if __name__ == '__main__':
 
-    from csv import DictReader, DictWriter, excel, excel_tab
-
+    from csv import DictReader, DictWriter, Sniffer, excel, excel_tab
     import sys
     import argparse
-
     from csvu import TrRowFunction
+    from cStringIO import StringIO
+
+    #
+    # Command-line argument processing.
+    #
 
     parser = argparse.ArgumentParser(description='CSVU tr is character translator like GNU tr, but for CSV files.')
 
@@ -16,35 +19,33 @@ if __name__ == '__main__':
             required=False, 
             type=str, 
             nargs='+',
-            help='space-separated list of columns to *tr*'
-        )
-
-    parser.add_argument(
-            '--where', 
-            required=False, 
-            type=str, 
-            nargs=2,
-            metavar=('COL', 'REGEX'),
-            help='filter for rows to *tr*'
+            help='Space-separated list of columns to *tr*.'
         )
 
     parser.add_argument(
             '--dialect', 
-            default='excel', 
-            choices=['excel', 'excel-tab'],
-            help='The *excel* dialect uses commas, *excel-tab* uses tabs'
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab'],
+            help='''The *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
         )
 
     parser.add_argument(
             'set1', 
             type=str,
-            help='The character set to translate *from*'
+            help='The character set to translate *from*.'
         )
 
     parser.add_argument(
             'set2', 
             type=str,
-            help='The character set to translate *to*'
+            help='The character set to translate *to*.'
         )
 
     parser.add_argument(
@@ -52,7 +53,7 @@ if __name__ == '__main__':
             type=str, 
             nargs='?', 
             default='-',
-            help='The CSV file to translate, defaults to STDIN'
+            help='The CSV file to translate, defaults to STDIN.'
         )
 
     args = parser.parse_args()
@@ -61,9 +62,43 @@ if __name__ == '__main__':
     if args.file != '-':
         f = open(args.file, 'r')
 
-    reader = DictReader(f, dialect=args.dialect)
-    tr     = TrRowFunction(args.set1, args.set2, cols=args.columns, where=args.where)
-    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=args.dialect)
+    #
+    # The dialect of CSV file.
+    #
+
+    dialect = None
+
+    if args.dialect == 'sniff':
+        # reads the entire file into memory.
+        f = StringIO(f.read())
+        sample = f.read()
+        f.reset()
+        dialect = Sniffer().sniff(sample)
+    elif args.dialect == 'excel':
+        dialect = excel
+    elif args.dialect == 'excel-tab':
+        dialect = excel_tab
+
+    #
+    # Column sanity check.
+    #
+
+    reader = DictReader(f, dialect=dialect)
+
+    columns = args.columns
+    if columns is None:
+        columns = reader.fieldnames
+    else:
+        for c in args.columns:
+            if not c in reader.fieldnames:
+                parser.error("Requested column '{}' is not in data".format(c))
+
+    #
+    # The actual computation.
+    #
+
+    tr     = TrRowFunction(args.set1, args.set2, cols=columns)
+    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=dialect)
 
     writer.writeheader()
     writer.writerows(tr(row) for row in reader)

@@ -127,12 +127,10 @@ class CSVUDictWriter(DictWriter):
 class GetRowFunction:
 
     def __init__(self, cols):
-        self.columns = cols
+        self.cols = cols
 
     def __call__(self, row):
         return {k : row[k] for k in self.cols}
-
-
 
 
 
@@ -146,9 +144,6 @@ class SetRowFunction:
     def __call__(self, row):
         row[self.dest] = self.const
         return row
-
-
-
 
 
 
@@ -201,8 +196,7 @@ class TrRowFunction:
         def maybe_tr(k, v):
             tr = False
             if self.cols:
-                if k in self.cols:
-                    tr = True
+                tr = k in self.cols
             else:
                 tr = True
             if tr:
@@ -210,4 +204,4 @@ class TrRowFunction:
             return v
 
         return {k: maybe_tr(k, v) for k, v in row.iteritems()}
-           
+

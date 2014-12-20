@@ -12,7 +12,9 @@ setup(
     packages=['csvu'],
     scripts=[
                 'bin/csvu-grep',
+                'bin/csvu-get',
                 'bin/csvu-tr',
+                'bin/csvu-sniff',
             ],
     zip_safe=False
     )
