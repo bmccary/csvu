@@ -2,13 +2,16 @@
 
 if __name__ == '__main__':
 
-    from csv import DictReader, DictWriter, excel, excel_tab
-
+    from csv import DictReader, DictWriter, Sniffer, excel, excel_tab
     import sys
     import argparse
-
     from csvu import GetRowFunction
+    from cStringIO import StringIO
 
+    #
+    # Command line argument processing.
+    #
+    
     parser = argparse.ArgumentParser(description='CSVU get is a field get-er like GNU cut, but for CSV files.')
 
     parser.add_argument(
@@ -21,9 +24,16 @@ if __name__ == '__main__':
 
     parser.add_argument(
             '--dialect', 
-            default='excel', 
-            choices=['excel', 'excel-tab'],
-            help='The *excel* dialect uses commas, *excel-tab* uses tabs'
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab'],
+            help='''The *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
         )
 
     parser.add_argument(
@@ -36,19 +46,50 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    #
+    # The CSV file to GET from.
+    #
+
     f = sys.stdin
     if args.file != '-':
-        f = open(args.file, 'r')
+        try:
+            f = open(args.file, 'r')
+        except:
+            parser.error("Cannot open file '{}' for reading.".format(args.file))
 
-    reader = DictReader(f, dialect=args.dialect)
+    #
+    # The dialect of CSV file.
+    #
+
+    dialect = None
+
+    if args.dialect == 'sniff':
+        # reads the entire file into memory.
+        f = StringIO(f.read())
+        sample = f.read()
+        f.reset()
+        dialect = Sniffer().sniff(sample)
+    elif args.dialect == 'excel':
+        dialect = excel
+    elif args.dialect == 'excel-tab':
+        dialect = excel_tab
+
+    #
+    # Sanity checks.
+    #
+
+    reader = DictReader(f, dialect=dialect)
 
     for c in args.columns:
         if not c in reader.fieldnames:
-            sys.stderr.write('{} is not a column\n'.format(c))
-            sys.exit(-1)
+            parser.error("Requested column '{}' is not in the data".format(c))
+
+    #
+    # The actual computation.
+    #
 
     get    = GetRowFunction(cols=args.columns)
-    writer = DictWriter(f=sys.stdout, fieldnames=args.columns, dialect=args.dialect)
+    writer = DictWriter(f=sys.stdout, fieldnames=args.columns, dialect=dialect)
 
     writer.writeheader()
     writer.writerows(get(row) for row in reader)

@@ -19,12 +19,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    #
+    # The CSV file to sniff.
+    #
+
     f = sys.stdin
     if args.file != '-':
         try:
             f = open(args.file, 'r')
         except:
             parser.error("Cannot open file '{}' for reading.".format(args.file))
+
+    #
+    # The actual computation.
+    #
 
     sample = f.read(2**16)
 

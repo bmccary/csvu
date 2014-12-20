@@ -60,7 +60,10 @@ if __name__ == '__main__':
 
     f = sys.stdin
     if args.file != '-':
-        f = open(args.file, 'r')
+        try:
+            f = open(args.file, 'r')
+        except:
+            parser.error("Cannot open file '{}' for reading.".format(args.file))
 
     #
     # The dialect of CSV file.
