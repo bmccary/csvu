@@ -251,6 +251,3 @@ class TrRowFunction:
 
         return {k: maybe_tr(k, v) for k, v in row.iteritems()}
            
-
-    
-

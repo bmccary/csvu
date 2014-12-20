@@ -2,7 +2,8 @@
 
 if __name__ == '__main__':
 
-    from csvu import CSVUDictReader, CSVUDictWriter, GrepFilter
+    from csv import DictReader, DictWriter, excel, excel_tab
+    from csvu import GrepFilter
     import sys
     import argparse
 
@@ -17,25 +18,42 @@ if __name__ == '__main__':
         )
 
     parser.add_argument(
-        'column', 
-        type=str,
-        help='The column to grep upon.'
+            '--dialect', 
+            default='excel', 
+            choices=['excel', 'excel-tab'],
+            help='The *excel* dialect uses commas, *excel-tab* uses tabs'
         )
 
     parser.add_argument(
-        'regex', 
-        type=str,
-        help='The regular expression (see the python re module).'
+            'column', 
+            type=str,
+            help='The column to grep upon.'
+        )
+
+    parser.add_argument(
+            'regex', 
+            type=str,
+            help='The regular expression (see the python re module).'
+        )
+
+    parser.add_argument(
+            'file', 
+            type=str, 
+            nargs='?', 
+            default='-',
+            help='The CSV file to grep, defaults to STDIN'
         )
 
     args = parser.parse_args()
 
-    reader = CSVUDictReader(f=sys.stdin)
+    f = sys.stdin
+    if args.file != '-':
+        f = open(args.file, 'r')
+
+    reader = DictReader(f, dialect=args.dialect)
     grep   = GrepFilter(col=args.column, include=args.v, regex=args.regex)
-    writer = CSVUDictWriter(f=sys.stdout, fieldnames=reader.fieldnames)
+    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=args.dialect)
 
     writer.writeheader()
     writer.writerows(row for row in reader if grep(row))
-
-# vim:ts=4:sw=4:et
 
