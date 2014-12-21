@@ -1,0 +1,64 @@
+#!/usr/bin/env python -u
+
+if __name__ == '__main__':
+
+    from csv import writer, excel, excel_tab
+    from csvu import xlsx_row_g
+    import sys
+    import argparse
+    from cStringIO import StringIO
+    
+    parser = argparse.ArgumentParser(
+            description='CSVC xlsx-to-csv converts a sheet of an XLSX file to CSV.'
+        )
+
+    parser.add_argument(
+            'file', 
+            nargs='?', 
+            default='-', 
+            type=str,
+            help='The XLSX file.'
+        )
+
+    def nonnegative_int(x):
+        m = "Not a nonnegative integer: '{}'".format(x)
+        try:
+            y = int(x)
+            if y < 0:
+                raise None
+            return y
+        except:
+            raise argparse.ArgumentTypeError(m)
+
+    parser.add_argument(
+            '--sheet', 
+            default=0, 
+            type=nonnegative_int,
+            help='The sheet of XLSX file to convert to CSV.'
+        )
+
+    parser.add_argument(
+            '--dialect1', 
+            default='excel',
+            choices=['excel', 'excel-tab',],
+            type=str,
+            help='The CSV dialect to use in the output file.'
+        )
+
+    args = parser.parse_args()
+
+    f = None
+
+    if args.file == '-':
+        f = StringIO(sys.stdin.read())
+        f.reset()
+    else:
+        f = open(args.file, 'rb')
+
+    w = writer(sys.stdout, dialect=args.dialect1)
+
+    try:
+        w.writerows(xlsx_row_g(f, sheet=args.sheet))
+    except Exception as e:
+        parser.error(e)
+

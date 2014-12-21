@@ -5,15 +5,27 @@ __all__ = [
             'GetRowFunction',
             'TrRowFunction',
             'GrepFilter',
+            'xlsx_row_g',
             ]
 
 
 
 
+import openpyxl
 import re
-
 import string
 
+
+
+
+def xlsx_row_g(f, sheet = 0):
+    wb = openpyxl.load_workbook(f, use_iterators=True)
+    N  = len(wb.worksheets)   
+    if not (0 <= sheet < N):
+        raise Exception("Sheet must be in range [{}, {}), but sheet = {}.".format(0, N, sheet))
+    ws = wb.worksheets[sheet]
+    for row in ws.rows:
+        yield [c.value for c in row]
 
 
 
