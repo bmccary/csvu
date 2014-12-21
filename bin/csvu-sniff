@@ -3,9 +3,12 @@
 if __name__ == '__main__':
 
     from csv import DictReader, DictWriter, Sniffer
-
     import sys
     import argparse
+
+    #
+    # Command line argument processing.
+    #
 
     parser = argparse.ArgumentParser(description='CSVU sniff detects the CSV dialect.')
 
@@ -14,7 +17,7 @@ if __name__ == '__main__':
             type=str, 
             nargs='?', 
             default='-',
-            help='The CSV file to translate, defaults to STDIN'
+            help='The CSV file to translate, defaults to STDIN.'
         )
 
     args = parser.parse_args()

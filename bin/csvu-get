@@ -19,7 +19,7 @@ if __name__ == '__main__':
             required=True, 
             type=str, 
             nargs='+',
-            help='space-separated list of columns to *get*'
+            help='Space-separated list of columns to *get*.'
         )
 
     parser.add_argument(
@@ -41,7 +41,7 @@ if __name__ == '__main__':
             type=str, 
             nargs='?', 
             default='-',
-            help='The CSV file to translate, defaults to STDIN'
+            help='The CSV file to translate, defaults to STDIN.'
         )
 
     args = parser.parse_args()

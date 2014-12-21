@@ -2,123 +2,17 @@
 
 
 __all__ = [
-            'CSVUDialect',
-            'CSVUDictReader',
-            'CSVUDictWriter',
             'GetRowFunction',
-            'SetRowFunction',
+            'TrRowFunction',
             'GrepFilter',
             ]
 
 
 
 
-
-
-
-
-from csv import Dialect, DictReader, DictWriter, QUOTE_MINIMAL, QUOTE_NONNUMERIC, QUOTE_ALL
-
 import re
 
 import string
-
-
-
-
-
-
-class CSVUDialect(Dialect):
-    doublequote = False
-    escapechar = '\\'
-    delimiter = ','
-    quotechar = '"'
-    skipinitialspace = True
-    lineterminator = '\r\n'
-    #quoting = QUOTE_MINIMAL
-    quoting = QUOTE_ALL
-
-
-
-
-
-
-
-class CSVUDictReader:
-
-    def __init__(self, f, 
-                    fieldnames=None, 
-                    restkey=None,   
-                    restval=None, 
-                    dialect=CSVUDialect(), 
-                    filter=None,
-                    *args, 
-                    **kwds):
-
-        self._reader = DictReader(
-                                    f, 
-                                    fieldnames=fieldnames,
-                                    restkey=restkey, 
-                                    restval=restval,    
-                                    dialect=dialect,
-                                    *args,
-                                    **kwds
-                                )
-        self._filter = filter
-
-    @property
-    def fieldnames(self):
-        return self._reader.fieldnames
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        f = self._filter
-        r = self._reader
-        if f:
-            while True:
-                d = r.next()
-                if f(d):
-                    return d
-        else:
-            return r.next()
-
-
-
-
-
-
-
-
-
-
-class CSVUDictWriter(DictWriter):
-
-    def __init__(self, *args, **kwds):
-        kwds['dialect'] = CSVUDialect()
-        DictWriter.__init__(self, *args, **kwds)
-
-    @classmethod
-    def _maybe_to_int(cls, v):
-
-        t = type(v)
-        
-        if t is int:
-            return v
-
-        if t is float and v.is_integer():
-            return int(v)
-
-        return v
-
-    def _dict_to_list(self, rowdict):
-        f = CSVUDictWriter._maybe_to_int
-        return [f(rowdict[k]) for k in self.fieldnames]
-             
-
-
-
 
 
 

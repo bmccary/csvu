@@ -1,0 +1,154 @@
+#!/usr/bin/env python
+
+if __name__ == '__main__':
+
+    from csv import DictReader, DictWriter, Sniffer, excel, excel_tab
+    import sys
+    import argparse
+    from cStringIO import StringIO
+    from operator import itemgetter
+
+    #
+    # Command-line argument processing.
+    #
+
+    parser = argparse.ArgumentParser(description='CSVU sort is like GNU sort, but for CSV files.')
+
+    parser.add_argument(
+            '--columns', 
+            required=True, 
+            type=str, 
+            nargs='+',
+            help='The columns to sort upon, in lexical order.'
+        )
+
+    parser.add_argument(
+            '--dialect', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab'],
+            help='''The *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
+        )
+
+    parser.add_argument(
+            'file', 
+            type=str, 
+            nargs='?', 
+            default='-',
+            help='The CSV file to translate, defaults to STDIN.'
+        )
+
+    parser.add_argument(
+            '--numeric', 
+            action='store_true', 
+            help='Attempt to convert each field to *float* prior to sort.'
+        )
+
+    parser.add_argument(
+            '--nastrings', 
+            nargs='*',
+            default=['None', 'NA', '',],
+            help='Values which get converted to *None* prior to sorting.'
+        )
+
+    group = parser.add_mutually_exclusive_group()
+    if True:
+        group.add_argument(
+                '--ascending', 
+                action='store_true',
+                help='Sort rows in ascending order.'
+            )
+    
+        group.add_argument(
+                '--descending', 
+                action='store_true',
+                help='Sort rows in descending order.'
+            )
+
+    args = parser.parse_args()
+
+    #
+    # The arguments to pass to sorted().
+    #
+
+    ascending = True
+    if args.descending:
+        ascending = False
+
+    def mkkey():
+
+        ig = itemgetter(*args.columns)
+
+        def caster(y):
+            y = y.strip()
+            if y in args.nastrings:
+                return None
+            if args.numeric:
+                try:
+                    z = float(y)
+                    return z
+                except:
+                    pass
+            return y
+
+        def key_len_1(x):
+            y = ig(x)
+            return caster(y)
+
+        def key_len_N(x):
+            y = ig(x)
+            return tuple(caster(i) for i in y)
+
+        if len(args.columns) == 1:
+            return key_len_1
+        else:
+            return key_len_N
+
+    key = mkkey()
+
+    #
+    # The CSV file to sort.
+    #
+
+    f = sys.stdin
+
+    if args.file != '-':
+        try:
+            f = open(args.file, 'r')
+        except:
+            parser.error("Cannot open file '{}' for reading.".format(args.file))
+
+    #
+    # The dialect of CSV file.
+    #
+
+    dialect = None
+
+    if args.dialect == 'sniff':
+        # reads the entire file into memory.
+        f = StringIO(f.read())
+        sample = f.read()
+        f.reset()
+        dialect = Sniffer().sniff(sample)
+    elif args.dialect == 'excel':
+        dialect = excel
+    elif args.dialect == 'excel-tab':
+        dialect = excel_tab
+
+    #
+    # The actual computation.
+    #
+
+    reader = DictReader(f, dialect=dialect)
+    writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=dialect)
+    writer.writeheader()
+    writer.writerows(sorted(reader, key=key, reverse=(not ascending)))
+
+# vim:ts=4:sw=4:et
+

@@ -15,6 +15,7 @@ setup(
                 'bin/csvu-get',
                 'bin/csvu-tr',
                 'bin/csvu-sniff',
+                'bin/csvu-sort',
             ],
     zip_safe=False
     )
