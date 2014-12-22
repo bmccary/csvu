@@ -14,6 +14,7 @@ __all__ = [
 import openpyxl
 import re
 import string
+from itertools import izip
 
 
 
@@ -29,6 +30,30 @@ def xlsx_row_g(f, sheet = 0):
 
 
 
+
+
+
+class TransposeFunction:
+    
+    def __init__(self, mat, safe=False):
+
+        m = len(mat)
+        if m > 0:
+            n = len(mat[0])
+        else:
+            n = 0
+
+        if not safe:
+            for row in mat:
+                if len(row) != n:
+                    raise ValueError("Argument :mat: non-rectangular.")
+
+        self.mat = mat
+
+    def __iter__(self):
+        tr = izip(*self.mat)
+        for row in tr:
+            yield row
 
 
 ##
