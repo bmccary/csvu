@@ -37,13 +37,13 @@ if __name__ == '__main__':
         )
 
     parser.add_argument(
-            'set1', 
+            'set0', 
             type=str,
             help='The character set to translate *from*.'
         )
 
     parser.add_argument(
-            'set2', 
+            'set1', 
             type=str,
             help='The character set to translate *to*.'
         )
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # The actual computation.
     #
 
-    tr     = TrRowFunction(args.set1, args.set2, cols=columns)
+    tr     = TrRowFunction(args.set0, args.set1, cols=columns)
     writer = DictWriter(f=sys.stdout, fieldnames=reader.fieldnames, dialect=dialect)
 
     writer.writeheader()

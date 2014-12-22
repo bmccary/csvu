@@ -7,6 +7,10 @@ if __name__ == '__main__':
     import sys
     import argparse
     from cStringIO import StringIO
+
+    #
+    # Command-line argument processing.
+    #
     
     parser = argparse.ArgumentParser(
             description='CSVC xlsx-to-csv converts a sheet of an XLSX file to CSV.'
@@ -21,20 +25,20 @@ if __name__ == '__main__':
         )
 
     def nonnegative_int(x):
-        m = "Not a nonnegative integer: '{}'".format(x)
         try:
             y = int(x)
             if y < 0:
                 raise None
             return y
         except:
+            m = "Not a nonnegative integer: '{}'".format(x)
             raise argparse.ArgumentTypeError(m)
 
     parser.add_argument(
             '--sheet', 
             default=0, 
             type=nonnegative_int,
-            help='The sheet of XLSX file to convert to CSV.'
+            help='The sheet of the XLSX file to convert to CSV.'
         )
 
     parser.add_argument(
@@ -47,13 +51,25 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    #
+    # The XLSX file to open.
+    #
+
     f = None
 
     if args.file == '-':
+        # OpenPYXL needs random access to the XLSX
+        # file, therefore the entire file needs to
+        # be read out of STDIN and buffered. StringIO 
+        # buffers it in memory.
         f = StringIO(sys.stdin.read())
         f.reset()
     else:
         f = open(args.file, 'rb')
+
+    #
+    # The actual computation.
+    #
 
     w = writer(sys.stdout, dialect=args.dialect1)
 

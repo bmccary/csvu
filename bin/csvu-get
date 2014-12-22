@@ -5,7 +5,7 @@ if __name__ == '__main__':
     from csv import DictReader, DictWriter, Sniffer, excel, excel_tab
     import sys
     import argparse
-    from csvu import GetRowFunction
+    from csvu import GetFunction
     from cStringIO import StringIO
 
     #
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     # The actual computation.
     #
 
-    get    = GetRowFunction(cols=args.columns)
+    get    = GetFunction(keys=args.columns)
     writer = DictWriter(f=sys.stdout, fieldnames=args.columns, dialect=dialect)
 
     writer.writeheader()

@@ -2,8 +2,8 @@
 
 
 __all__ = [
-            'GetRowFunction',
-            'TrRowFunction',
+            'GetFunction',
+            'TrFunction',
             'GrepFilter',
             'xlsx_row_g',
             ]
@@ -30,47 +30,106 @@ def xlsx_row_g(f, sheet = 0):
 
 
 
-class GetRowFunction:
 
-    def __init__(self, cols):
-        self.cols = cols
+##
+## Function
+## 
+##     dict0 -> dict1
+##
 
-    def __call__(self, row):
-        return {k : row[k] for k in self.cols}
-
-
-
-
-class SetRowFunction:
-
-    def __init__(self, dest, const):
-        self.dest  = dest
-        self.const = const
-
-    def __call__(self, row):
-        row[self.dest] = self.const
-        return row
+class Function:
+    pass
 
 
+class GetFunction(Function):
+
+    def __init__(self, keys, strict=False):
+        self.keys   = keys
+        self.strict = strict
+
+    def __call__(self, dyct):
+        if self.strict:
+            return {k : dyct[k] for k in self.keys}
+        else:
+            return {k : dyct.get(k) for k in self.keys}
 
 
-class BlankRowFunction:
+class SetFunction:
 
-    def __init__(self, columns):
-        self.columns = columns
+    def __init__(self, key, val):
+        self.key = key
+        self.val = val
 
-    def __call__(self, row):
-        for c in self.columns:
-            row[c] = None
-        return row
-
-
+    def __call__(self, dyct):
+        dyct[self.key] = self.val
+        return dyct
 
 
-class GrepFilter:
+class TrFunction:
 
-    def __init__(self, col, regex, include=True):
-        self.col   = col
+    def __init__(self, set0, set1, keys=None):
+        self.keys  = keys
+        self.set0  = set0
+        self.set1  = set1
+        self.table = string.maketrans(set0, set1)
+
+    def __call__(self, dyct):
+       
+        def maybe_tr(k, v):
+            tr = False
+            if self.keys:
+                tr = k in self.keys
+            else:
+                tr = True
+            if tr:
+                return string.translate(v, self.table)
+            return v
+
+        return {k: maybe_tr(k, v) for k, v in dyct.iteritems()}
+
+
+
+##
+## Filter
+## 
+##     dict -> True | False
+##
+
+class Filter:
+    pass
+
+
+NASTRINGS = [
+                'None',
+                'NA',
+                '',
+            ]
+
+
+def blank_p(x, nastrings=NASTRINGS):
+    if x is None:
+        return True
+    if isinstance(x, basestring):
+        x = x.strip()
+        if x in nastrings:
+            return True
+    return False
+    
+
+class BlankFilter(Filter):
+
+    def __init__(self, blank_p=blank_p):
+        self.blank_p = blank_p
+
+    def __call__(self, dyct):
+        p = self.blank_p
+        return all(not p(x) for x in dyct)
+
+
+class GrepFilter(Filter):
+
+    def __init__(self, key, regex, include=True):
+        self.key   = key 
         self.regex = regex
         if type(regex) is str:
             self.regex = re.compile(regex)
@@ -78,36 +137,11 @@ class GrepFilter:
             self.regex = regex
         self.include = include
     
-    def __call__(self, row):
-        m = self.regex.search(row[self.col])
+    def __call__(self, dyct):
+        m = self.regex.search(dyct[self.key])
         if m:
             return self.include
         else:
             return not self.include
             
-
-
-
-class TrRowFunction:
-
-    def __init__(self, set1, set2, cols=None):
-        
-        self.cols  = cols
-        self.set1  = set1
-        self.set2  = set2
-        self.table = string.maketrans(set1, set2)
-
-    def __call__(self, row):
-       
-        def maybe_tr(k, v):
-            tr = False
-            if self.cols:
-                tr = k in self.cols
-            else:
-                tr = True
-            if tr:
-                return string.translate(v, self.table)
-            return v
-
-        return {k: maybe_tr(k, v) for k, v in row.iteritems()}
 
