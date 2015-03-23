@@ -533,6 +533,69 @@ def sniff_program():
 
 
 
+def dialect_arg_parser():
+    description = 'CSVU dialect converts one CSV dialect to another.'
+    parser = default_arg_parser(description)
+    return parser
+
+def dialect_g(row_g):
+
+    return row_g
+    
+def dialect_program():
+
+    parser = dialect_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_g = dialect_g(
+                            row_g=reader_g,
+                        )
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def tr_arg_parser():
     description = 'CSVU tr is like GNU tr, but for CSV files.'
     parser = default_arg_parser(description)
