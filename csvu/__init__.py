@@ -1051,10 +1051,7 @@ def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
                         row1[fn] = None
                 else:
                     d = True
-            if compact:
-                if d:
-                    yield row1
-            else:
+            if (not compact) or d:
                 yield row1
 
     def diff_d():
