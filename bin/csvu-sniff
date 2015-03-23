@@ -2,50 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csv import DictReader, DictWriter, Sniffer
-    import sys
-    import argparse
+    from csvu import sniff_program
 
-    #
-    # Command line argument processing.
-    #
-
-    parser = argparse.ArgumentParser(description='CSVU sniff detects the CSV dialect.')
-
-    parser.add_argument(
-            'file', 
-            type=str, 
-            nargs='?', 
-            default='-',
-            help='The CSV file to translate, defaults to STDIN.'
-        )
-
-    args = parser.parse_args()
-
-    #
-    # The CSV file to sniff.
-    #
-
-    f = sys.stdin
-    if args.file != '-':
-        try:
-            f = open(args.file, 'r')
-        except:
-            parser.error("Cannot open file '{}' for reading.".format(args.file))
-
-    #
-    # The actual computation.
-    #
-
-    sample = f.read(2**16)
-
-    dialect = Sniffer().sniff(sample)
-
-    print "delimiter       : {}".format(repr(dialect.delimiter))
-    print "doublequote     : {}".format(repr(dialect.doublequote))
-    print "escapechar      : {}".format(repr(dialect.escapechar))
-    print "lineterminator  : {}".format(repr(dialect.lineterminator))
-    print "quotechar       : {}".format(repr(dialect.quotechar))
-    print "quoting         : {}".format(repr(dialect.quoting))
-    print "skipinitialspace: {}".format(repr(dialect.skipinitialspace))
-
+    sniff_program()
+    

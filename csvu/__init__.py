@@ -1,172 +1,1128 @@
 
 
 
-__all__ = [
-            'GetFunction',
-            'TrFunction',
-            'GrepFilter',
-            'xlsx_row_g',
-            ]
 
-
-
-
+import argparse
+from cStringIO import StringIO
+from csv import excel, excel_tab, reader, DictReader, DictWriter, Sniffer
 import openpyxl
 import re
 import string
-from itertools import izip
+import sys
+import os
+from itertools import izip, izip_longest
+from operator import itemgetter
+from prettytable import PrettyTable
+import importlib
+from pprint import pformat
+from numbers import Number
 
 
 
 
-def xlsx_row_g(f, sheet = 0):
+
+
+
+
+def default_arg_parser(description):
+
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument(
+            '--headless',
+            default=False,
+            action='store_true',
+            help='''Use this flag if there is no header.''',
+        )
+
+    parser.add_argument(
+            '--dialect0', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab',],
+            help='''The dialect of the CSV input.
+                    Option *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
+        )
+
+    parser.add_argument(
+            '--dialect1', 
+            default='dialect0', 
+            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
+            help='''The dialect of the CVS output.
+                    Option *dialect0* uses the same dialect as the input,
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs,
+                    *pretty* prints a human-readable table.
+                    '''
+        )
+
+    parser.add_argument(
+            '--file0', 
+            type=str, 
+            default='-',
+            help='The input CSV file, defaults to STDIN.'
+        )
+
+    parser.add_argument(
+            '--file1', 
+            type=str, 
+            default='-',
+            help='The output CSV file, defaults to STDOUT.'
+        )
+
+    return parser
+
+
+
+
+
+
+def reader_make(fname='-', dialect='sniff', headless=False):
+    """
+    Make a reader for CSV files.
+
+    :param fname: 
+        The file to read from. Default is '-', which denotes STDIN.
+
+    :param dialect: 
+        The CSV dialect. Default is 'sniff', which (usually) automatically
+        detects the dialect. However, 'sniff' will load the entire CSV
+        file into memory, which may be unsuitable. Options are 'sniff', 
+        'excel', 'excel-tab', or any Dialect object from the python
+        csv module.
+
+    :param headless:
+        Whether or not CSV is headless. Default is False. When CSV has
+        a header, column names are the values in the first row. When
+        CSV is headless, column names are integers 0, 1, 2, et cetera.
+
+    """
+
+    #
+    # File
+    #
+
+    f = sys.stdin
+
+    if fname != '-':
+        f = open(fname, 'r')
+
+    #
+    # Dialect
+    #
+
+    if dialect == 'sniff':
+        # read the entire file into memory.
+        f = StringIO(f.read())
+        sample = f.read()
+        f.reset()
+        dialect = Sniffer().sniff(sample)
+
+    #
+    # Reader
+    #
+
+    if headless:
+        r = reader(f, dialect=dialect)
+        row0 = r.next()
+        fieldnames = [str(i) for i, x in enumerate(row0)]
+        def gen():
+            yield {fn: x for fn, x in izip(fieldnames, row0)}
+            for row in r:
+                yield {fn: x for fn, x in izip(fieldnames, row)}
+        return {'dialect': dialect, 'fieldnames': fieldnames, 'reader': gen()}
+    else:
+        r = DictReader(f, dialect=dialect)
+        fieldnames = r.fieldnames
+        def gen():
+            for row in r:
+                yield row
+        return {'dialect': dialect, 'fieldnames': fieldnames, 'reader': gen()}
+
+
+
+
+
+def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
+
+    #
+    # File
+    #
+
+    f = sys.stdout
+
+    if fname != '-':
+        f = open(fname, 'w')
+
+    #
+    # Writer
+    #
+
+    if dialect == 'pretty':
+        def wf(gen):
+
+            w = None
+
+            if headless:
+                w = PrettyTable(header=False)
+            else:
+                w = PrettyTable(fieldnames)
+
+            for row in gen:
+                w.add_row([row[fn] for fn in fieldnames])
+
+            f.write(w.get_string()) 
+            f.write('\n')
+
+        return wf
+    else:
+        def wf(gen):
+            w = DictWriter(f, dialect=dialect, fieldnames=fieldnames)
+            if not headless:
+                w.writeheader()
+            w.writerows(row for row in gen)
+
+        return wf
+
+
+
+
+
+
+
+
+
+
+
+
+
+def xlsx_to_csv_arg_parser():
+
+    description='CSVU xlsx-to-csv converts a sheet of an XLSX file to CSV.'
+
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument(
+            'file',
+            nargs='?',
+            default='-',
+            type=str,
+            help='The XLSX file.'
+        )
+
+    def nonnegative_int(x):
+        try:
+            y = int(x)
+            if y < 0:
+                raise None
+            return y
+        except:
+            m = "Not a nonnegative integer: '{}'".format(x)
+            raise argparse.ArgumentTypeError(m)
+
+    parser.add_argument(
+            '--sheet',
+            default=0,
+            type=nonnegative_int,
+            help='The sheet of the XLSX file to convert to CSV.'
+        )
+
+    parser.add_argument(
+            '--dialect1', 
+            default='excel', 
+            choices=['excel', 'excel-tab', 'pretty',],
+            help='''The dialect of the CVS output.
+                    Option *excel* dialect uses commas, 
+                    *excel-tab* uses tabs,
+                    *pretty* prints a human-readable table.
+                    '''
+        )
+
+    parser.add_argument(
+            '--file1', 
+            type=str, 
+            default='-',
+            help='The output CSV file, defaults to STDOUT.'
+        )
+
+    return parser
+
+def xlsx_to_csv_d(f, sheet=0):
     wb = openpyxl.load_workbook(f, use_iterators=True)
     N  = len(wb.worksheets)   
     if not (0 <= sheet < N):
-        raise Exception("Sheet must be in range [{}, {}), but sheet = {}.".format(0, N, sheet))
+        raise Exception("Sheet must be in range [0, {}), but sheet = {}.".format(N, sheet))
     ws = wb.worksheets[sheet]
-    for row in ws.rows:
-        yield [c.value for c in row]
+    M = max(len(row) for row in ws.rows)
+    K = [str(i) for i in range(M)]
 
+    def g():
+        for row in ws.rows:
+            yield {k: (c.value or '') for k, c in izip_longest(K, row, fillvalue='')}
 
+    return {'fieldnames': K, 'xlsx_to_csv_g': g()}
 
+def xlsx_to_csv_program():
 
+    parser = xlsx_to_csv_arg_parser()
 
+    args = parser.parse_args()
 
-class TransposeFunction:
-    
-    def __init__(self, mat, safe=False):
+    try:
 
-        m = len(mat)
-        if m > 0:
-            n = len(mat[0])
+        f = None
+
+        if args.file == '-':
+            # OpenPYXL needs random access to the XLSX
+            # file, so dump STDIN into a StringIO.
+            f = StringIO(sys.stdin.read())
+            f.reset()
         else:
-            n = 0
+            f = open(args.file, 'rb')
 
-        if not safe:
-            for row in mat:
-                if len(row) != n:
-                    raise ValueError("Argument :mat: non-rectangular.")
+        filter_d = xlsx_to_csv_d(
+                            f,
+                            sheet=args.sheet,
+                        )
 
-        self.mat = mat
+        fieldnames = filter_d['fieldnames']
+        filter_g   = filter_d['xlsx_to_csv_g']
 
-    def __iter__(self):
-        tr = izip(*self.mat)
-        for row in tr:
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=args.dialect1,
+                        headless=True,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def sort_arg_parser():
+
+    parser = default_arg_parser('CSVU Sort is like GNU Sort, but for CSV files.')
+
+    parser.add_argument(
+            '--columns', 
+            type=str, 
+            required=True,
+            nargs='+',
+            help='''The columns to sort upon, in lexical order.
+                    If --headless then --columns are integers starting
+                    with 0 otherwise --columns are named columns.
+                    '''
+        )
+
+    parser.add_argument(
+            '--numeric', 
+            action='store_true', 
+            help='Attempt to convert each field to *float* prior to sort.'
+        )
+
+    parser.add_argument(
+            '--nastrings', 
+            nargs='*',
+            default=['None', 'NA', '',],
+            help='Values which get converted to *None* prior to sorting.'
+        )
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+            '--ascending', 
+            action='store_true',
+            help='Sort rows in ascending order.'
+        )
+    group.add_argument(
+            '--descending', 
+            action='store_true',
+            help='Sort rows in descending order.'
+        )
+
+    return parser
+
+def sort_g(row_g, cols, asc=True, numeric=False, nastrings=['', 'NA', 'None']):
+    """
+    :param row_g: Rows to sort. :row_g: must be a generator of dictionaries.
+    :param cols: Columns for keys. :cols: must be a generator of strings.
+    :param asc: Ascending or descending. :asc: must be bool.
+    :param numeric: Interpret keys as numeric. :asc: must be bool.
+    :param nastrings: Values to compare as equivalent to None in python term order.
+    """
+
+    def mkkey():
+
+        def caster(y):
+            y = y.strip()
+            if y in nastrings:
+                return None
+            if numeric:
+                try:
+                    z = float(y)
+                    return z
+                except:
+                    pass
+            return y
+
+        ig = itemgetter(*cols)
+
+        def key_len_1(x):
+            y = ig(x)
+            return caster(y)
+
+        def key_len_N(x):
+            y = ig(x)
+            return tuple(caster(i) for i in y)
+
+        if len(cols) == 1:
+            return key_len_1
+        else:
+            return key_len_N
+
+    key = mkkey()
+
+    for row in sorted(row_g, key=key, reverse=(not asc)):
+        yield row
+
+def sort_program():
+
+    parser = sort_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        for c in args.columns:
+            if not c in fieldnames:
+                m = 'Requested column {c} not found, available options are: {fieldnames}'.format(c=c, fieldnames=fieldnames)
+                parser.error(m)
+
+        filter_g = sort_g(
+                            row_g=reader_g,
+                            cols=args.columns,
+                            asc=args.ascending,
+                            numeric=args.numeric,
+                            nastrings=args.nastrings,
+                        )
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def sniff_arg_parser():
+
+    description = 'CSVU sniff will determine the dialect of a CSV file.'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument(
+        '--file', 
+        type=str, 
+        default='-',
+        help='The input CSV file, defaults to STDIN.'
+    )
+
+    return parser
+
+def sniff_program():
+
+    parser = sniff_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        f = sys.stdin
+
+        if args.file != '-':
+            f = open(args.file, 'r')
+
+        sample = f.read(2**16)
+
+        dialect = Sniffer().sniff(sample)
+
+        v = vars(dialect)
+
+        x = PrettyTable(header=False)
+        for k, v in vars(dialect).iteritems():
+            if not k.startswith('_'):
+                x.add_row([k, repr(v)])
+
+        print x
+
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+def tr_arg_parser():
+    description = 'CSVU tr is like GNU tr, but for CSV files.'
+    parser = default_arg_parser(description)
+    parser.add_argument(
+            '--columns', 
+            required=False, 
+            type=str, 
+            nargs='+',
+            help='Space-separated list of columns to *tr*.'
+        )
+    parser.add_argument(
+            'set0', 
+            type=str,
+            help='The character set to translate *from*.'
+        )
+    parser.add_argument(
+            'set1', 
+            type=str,
+            help='The character set to translate *to*.'
+        )
+    return parser
+
+def tr_g(row_g, set0, set1, cols=None):
+
+    table = string.maketrans(set0, set1)
+
+    def maybe_tr(k, v):
+        tr = False
+        if cols is None:
+            tr = True
+        else:
+            tr = k in cols 
+        if tr:
+            return string.translate(v, table)
+        return v
+
+    for row in row_g:
+        yield {k: maybe_tr(k, v) for k, v in row.iteritems()}
+    
+def tr_program():
+
+    parser = tr_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        if args.columns:
+            for c in args.columns:
+                if not c in fieldnames:
+                    m = 'Requested column {c} not found, available options are: {fieldnames}'.format(c=c, fieldnames=fieldnames)
+                    parser.error(m)
+
+        filter_g = tr_g(
+                            row_g=reader_g,
+                            set0=args.set0,
+                            set1=args.set1,
+                            cols=args.columns,
+                        )
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def grep_arg_parser():
+    description = 'CSVU grep is like GNU grep, but for CSV files.'
+    parser = default_arg_parser(description)
+    parser.add_argument(
+            '--negate',
+            '-v', 
+            default=True, 
+            action='store_const', 
+            const=False,
+            help='Include only non-matches.'
+        )
+    parser.add_argument(
+            'column', 
+            type=str,
+            help='The column to grep upon.'
+        )
+    parser.add_argument(
+            'regex', 
+            type=str,
+            help='The regular expression (see the python re module).'
+        )
+    return parser
+
+def grep_g(row_g, col, regex, negate):
+
+    if type(regex) is str:
+        regex = re.compile(regex)
+
+    for row in row_g:
+        m = regex.search(row[col]) is None
+        if m ^ negate:
             yield row
 
+def grep_program():
 
-##
-## Function
-## 
-##     dict0 -> dict1
-##
+    parser = grep_arg_parser()
 
-class Function:
-    pass
+    args = parser.parse_args()
 
+    try:
 
-class GetFunction(Function):
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
 
-    def __init__(self, keys, strict=False):
-        self.keys   = keys
-        self.strict = strict
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
 
-    def __call__(self, dyct):
-        if self.strict:
-            return {k : dyct[k] for k in self.keys}
-        else:
-            return {k : dyct.get(k) for k in self.keys}
+        if not args.column in fieldnames:
+            m = 'Requested column {c} not found, available options are: {fieldnames}'.format(c=args.column, fieldnames=fieldnames)
+            parser.error(m)
 
+        filter_g = grep_g(
+                            row_g=reader_g,
+                            col=args.column,
+                            regex=args.regex,
+                            negate=args.negate,
+                        )
 
-class SetFunction:
+        dialect1 = args.dialect1
 
-    def __init__(self, key, val):
-        self.key = key
-        self.val = val
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
 
-    def __call__(self, dyct):
-        dyct[self.key] = self.val
-        return dyct
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
 
+        writer_f(filter_g)
+                        
 
-class TrFunction:
+    except Exception as exc:
 
-    def __init__(self, set0, set1, keys=None):
-        self.keys  = keys
-        self.set0  = set0
-        self.set1  = set1
-        self.table = string.maketrans(set0, set1)
-
-    def __call__(self, dyct):
-       
-        def maybe_tr(k, v):
-            tr = False
-            if self.keys:
-                tr = k in self.keys
-            else:
-                tr = True
-            if tr:
-                return string.translate(v, self.table)
-            return v
-
-        return {k: maybe_tr(k, v) for k, v in dyct.iteritems()}
+        parser.error(exc)
 
 
 
-##
-## Filter
-## 
-##     dict -> True | False
-##
-
-class Filter:
-    pass
 
 
-NASTRINGS = [
-                'None',
-                'NA',
-                '',
-            ]
 
 
-def blank_p(x, nastrings=NASTRINGS):
-    if x is None:
+def transpose_arg_parser():
+    
+    description = 'CSVU transpose will transpose a CSV file.'
+    parser = default_arg_parser(description)
+    return parser
+
+def transpose_d(row_g, fieldnames):
+
+    rows = [[row[fn] for fn in fieldnames] for row in row_g]
+
+    m = len(rows)
+    if m > 0:
+        n = len(rows[0])
+    else:
+        n = 0
+
+    for row in rows:
+        if n != len(row):
+            raise ValueError("Not rectangular.")
+
+    keys = [str(i) for i in range(m)]
+
+    def g():
+        for row in izip(*rows):
+            yield {i: c for i, c in izip(keys, row)}
+
+    return {'fieldnames': keys, 'transpose_g': g()}
+
+def transpose_program():
+
+    parser = transpose_arg_parser()
+
+    args = parser.parse_args()
+
+    # FIXME: Need to remove --headless from arg parser.
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=True,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_d = transpose_d(
+                            row_g=reader_g,
+                            fieldnames=fieldnames,
+                        )
+
+        filter_g   = filter_d['transpose_g']
+        fieldnames = filter_d['fieldnames']
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=True,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+def cut_arg_parser():
+    
+    description = 'CSVU cut is like GNU cut, but for CSV files.'
+    parser = default_arg_parser(description)
+
+    parser.add_argument(
+            '--columns', 
+            type=str, 
+            required=True,
+            nargs='+',
+            help='''The columns to cut.
+                    If --headless then --columns are integers starting
+                    with 0 otherwise --columns are named columns.
+                    '''
+        )
+
+    parser.add_argument(
+            '--negate',
+            default=False, 
+            action='store_true', 
+            help='''Include only columns not listed.
+                    '''
+        )
+
+    return parser
+
+def cut_g(row_g, cols, fieldnames, negate=False):
+
+    for row in row_g:
+        yield {c: row[c] for c in fieldnames if (c in cols) ^ negate}
+
+def cut_program():
+
+    parser = cut_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_g = cut_g(
+                            row_g=reader_g,
+                            fieldnames=fieldnames,
+                            cols=args.columns,
+                            negate=args.negate,
+                        )
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        fieldnames = [c for c in fieldnames if (c in args.columns) ^ args.negate]
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+K_NAs = [
+            '', 
+            'NA', 
+            'NONE', 
+            None, 
+            [],
+        ]
+
+def isnum(x):
+    return isinstance(x, Number)
+
+def isstr(x):
+    return isinstance(x, basestring)
+
+def isna(x):
+    if isstr(x):
+        x = x.strip().upper()
+
+    return x in K_NAs
+
+def tona_or(f):
+    def g(x):
+        if isna(x):
+            return None
+        return f(x)
+    return g
+
+def tonn_or(f):
+    def g(x):
+        x = f(x)
+        if not isnum(x) or x < 0:
+            raise Exception("Negative argument: {}".format(x))
+        return x
+    return g
+
+tofloat = tona_or(float)
+toint   = tona_or(int)
+
+tonnfloat = tonn_or(tofloat)
+tonnint   = tonn_or(toint)
+
+def tozero(x):
+    if isna(x):
+        return 0.0
+
+    return x
+
+def sum0(X):
+    if isna(X):
+        return None
+    elif all(isna(x) for x in X):
+        return None
+    return float(sum(tozero(x) for x in X))
+
+def mean0(X):
+    s = sum0(X)
+    if isna(s):
+        return None
+    return s / len(X)
+
+def drop0(X, N):
+    Y = sorted((tofloat(x) for x in X), reverse=False)
+    return Y[N:]
+
+def max0(X):
+    if isna(X):
+        return None
+    return max(tofloat(x) for x in X)
+
+def min0(X):
+    if isna(X):
+        return None
+    return min(tofloat(x) for x in X)
+
+def equal0(x, y):
+    if isna(x) and isna(y):
         return True
-    if isinstance(x, basestring):
+
+    if isnum(x) and isnum(y):
+        return abs(x - y) < 1e-5
+
+    if isstr(x) and isstr(y):
         x = x.strip()
-        if x in nastrings:
-            return True
-    return False
-    
+        y = y.strip()
+        return x == y
 
-class BlankFilter(Filter):
+    return x == y
 
-    def __init__(self, blank_p=blank_p):
-        self.blank_p = blank_p
+def inner0(X, Y):
+    if all(isna(x) for x in X) or all(isna(y) for y in Y):
+        return None
+    return sum(x * y for x, y in izip(
+                                        (tozero(x) for x in X), 
+                                        (tozero(y) for y in Y),
+                                ))
 
-    def __call__(self, dyct):
-        p = self.blank_p
-        return all(not p(x) for x in dyct)
+def row_reducer_arg_parser():
 
+    description = 'CSVU row-reducer repeatedly applies a module of row functions.'
 
-class GrepFilter(Filter):
+    parser = default_arg_parser(description)
 
-    def __init__(self, key, regex, include=True):
-        self.key   = key 
-        self.regex = regex
-        if type(regex) is str:
-            self.regex = re.compile(regex)
-        else:
-            self.regex = regex
-        self.include = include
-    
-    def __call__(self, dyct):
-        m = self.regex.search(dyct[self.key])
-        if m:
-            return self.include
-        else:
-            return not self.include
+    parser.add_argument(
+            '--reductions', 
+            type=str,
+            default='reductions',
+            help='''The file from which to get reductions.
+                    '''
+        )
+
+    parser.add_argument(
+            '--coercions', 
+            type=str,
+            default='coercions',
+            help='''The file from which to get coercions.
+                    '''
+        )
+
+    def positive_int(x):
+        try:
+            y = int(x)
+            if y < 1:
+                raise None
+            return y
+        except:
+            m = "Not a nonnegative integer: '{}'".format(x)
+            raise argparse.ArgumentTypeError(m)
+
+    parser.add_argument(
+            '--N',
+            default=10,
+            type=positive_int,
+            help='''The number of iterations to attempt.
+                    '''
+        )
+
+   
+
+    return parser
+
+def row_reducer_g(row_g, fieldnames, reductions, coercions=None, N=10):
+
+    for row in row_g:
+
+        if coercions:
+            for fn in fieldnames:
+                f = getattr(coercions, fn, None)
+                if not callable(f):
+                    continue
+                try:
+                    row[fn] = f(row[fn])
+                except Exception as exc:
+                    m = "The following row has an invalid/uncoercable '{}':\n\n\t{}\n\nFor the following reason: \n\n\t{}\n".format(fn, pformat(row), exc)
+                    raise Exception(m)
+
+        for fn in fieldnames:
+            f = getattr(reductions, fn, None)
+            if not callable(f):
+                continue
+            for i in xrange(N):
+                v0 = row[fn]
+                v1 = f(row)
+                if equal0(v0, v1):
+                    break
+                row[fn] = v1
+
+        yield row
             
+def row_reducer_program():
+
+    parser = row_reducer_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        #
+        # CSV reader.
+        #
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        #
+        # Modules.
+        #
+
+        sys.path.append(os.getcwd())
+
+        coercions  = importlib.import_module(args.coercions)
+        reductions = importlib.import_module(args.reductions)
+
+        for m in [coercions, reductions]:
+            init = getattr(m, 'init', None)
+            if callable(init):
+                init()
+
+        #
+        # Filter.
+        #
+
+        filter_g = row_reducer_g(
+                            row_g=reader_g,
+                            fieldnames=fieldnames,
+                            coercions=coercions,
+                            reductions=reductions,
+                        )
+
+
+        #
+        # CSV writer.
+        #
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
 

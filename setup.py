@@ -15,10 +15,11 @@ setup(
             ],
         scripts=[
                     'bin/csvu-grep',
-                    'bin/csvu-get',
-                    'bin/csvu-tr',
+                    'bin/csvu-cut',
                     'bin/csvu-sniff',
                     'bin/csvu-sort',
+                    'bin/csvu-tr',
+                    'bin/csvu-transpose',
                     'bin/csvu-xlsx-to-csv',
                 ],
         zip_safe=False
