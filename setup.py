@@ -11,11 +11,14 @@ setup(
         license='MIT',
         packages=['csvu'],
         install_requires=[
-                'openpyxl', # To open XLSX
+                'openpyxl',    # To open XLSX
+                'PrettyTable', # For printing human-readable CSV on console
             ],
         scripts=[
+                    'bin/csvu-diff',
                     'bin/csvu-grep',
                     'bin/csvu-cut',
+                    'bin/csvu-row-reduce',
                     'bin/csvu-sniff',
                     'bin/csvu-sort',
                     'bin/csvu-tr',
