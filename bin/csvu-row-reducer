@@ -1,8 +1,0 @@
-#!/usr/bin/env python
-
-if __name__ == '__main__':
-
-    from csvu import row_reducer_program
-
-    row_reducer_program()
-

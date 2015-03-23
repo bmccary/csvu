@@ -885,6 +885,212 @@ def cut_program():
 
 
 
+def diff_arg_parser():
+    
+    description = 'CSVU diff computes the diff between two CSV files.'
+
+    parser = argparse.ArgumentParser(description)
+
+    parser.add_argument(
+            '--headless',
+            default=False,
+            action='store_true',
+            help='''Does the CSV have named columns (a header)?''',
+        )
+
+    parser.add_argument(
+            '--keyname',
+            default=None,
+            help='''The key column name, if any.''',
+        )
+
+    parser.add_argument(
+            '--compact',
+            default=False,
+            action='store_true',
+            help='''Omit empty rows/cols.''',
+        )
+
+    parser.add_argument(
+            '--dialect0', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab',],
+            help='''The dialect of the first CSV input.
+                    Option *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
+        )
+
+    parser.add_argument(
+            '--dialect1', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab',],
+            help='''The dialect of the second CSV input.
+                    See --dialect0.
+                    '''
+        )
+
+    parser.add_argument(
+            '--dialect2', 
+            default='dialect0', 
+            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
+            help='''The dialect of the CVS output.
+                    Option *dialect0* uses the same dialect as the input,
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs,
+                    *pretty* prints a human-readable table.
+                    '''
+        )
+
+    parser.add_argument(
+            '--file0', 
+            type=str, 
+            default='-',
+            help='The first input CSV file, defaults to STDIN.'
+        )
+
+    parser.add_argument(
+            '--file1', 
+            type=str, 
+            required=True,
+            help='The second input CSV file, no default.'
+        )
+
+    parser.add_argument(
+            '--file2', 
+            type=str, 
+            default='-',
+            help='The output CSV file, defaults to STDOUT.'
+        )
+
+    return parser
+
+def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
+
+    def diff_g1():
+        for row0, row1 in izip(row0_g, row1_g):
+            if keyname:
+                k0 = row0[keyname]
+                k1 = row1[keyname]
+                if k0 != k1:
+                    raise Exception("Difference in key column, cannot diff!")
+            d = False
+            for fn in fieldnames:
+                v0 = row0[fn]
+                v1 = row1[fn]
+                if equal0(v0, v1):
+                    if fn != keyname:
+                        row1[fn] = None
+                else:
+                    d = True
+            if compact:
+                if d:
+                    yield row1
+            else:
+                yield row1
+
+    def diff_d():
+        rows = [row for row in diff_g1()]
+        keeps = []
+        for fn in fieldnames:
+            if fn == keyname:
+                keeps.append(fn)
+            elif not all(isna(row[fn]) for row in rows):
+                keeps.append(fn)
+
+        def diff_g2():
+            for row in rows:
+                yield {fn: row[fn] for fn in keeps}
+
+        return {'fieldnames': keeps, 'diff_g': diff_g2()}
+
+    if compact:
+        return diff_d()
+
+    return {'fieldnames': fieldnames, 'diff_g': diff_g1()}
+
+    
+
+def diff_program():
+
+    parser = diff_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader0_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        reader1_d = reader_make(
+                        fname=args.file1,
+                        dialect=args.dialect1,
+                        headless=args.headless,
+                    )
+
+        dialect0    = reader0_d['dialect']
+        fieldnames0 = reader0_d['fieldnames']
+        reader0_g   = reader0_d['reader']
+
+        dialect1    = reader1_d['dialect']
+        fieldnames1 = reader1_d['fieldnames']
+        reader1_g   = reader1_d['reader']
+
+        if fieldnames0 != fieldnames1:
+            raise Exception("'{}' and '{}' have different columns.".format(args.file0, args.file1))
+
+        filter_d = diff_d(
+                            row0_g=reader0_g,
+                            row1_g=reader1_g,
+                            fieldnames=fieldnames0,
+                            keyname=args.keyname,
+                            compact=args.compact,
+                        )
+
+        fieldnames2 = filter_d['fieldnames']
+        filter_g    = filter_d['diff_g']
+
+        dialect2 = args.dialect2
+
+        if dialect2 == 'dialect0':
+            dialect2 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file2,
+                        dialect=dialect2,
+                        headless=args.headless,
+                        fieldnames=fieldnames2,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        parser.error(exc)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 K_NAs = [
             '', 
             'NA', 
@@ -981,9 +1187,9 @@ def inner0(X, Y):
                                         (tozero(y) for y in Y),
                                 ))
 
-def row_reducer_arg_parser():
+def row_reduce_arg_parser():
 
-    description = 'CSVU row-reducer repeatedly applies a module of row functions.'
+    description = 'CSVU row-reduce repeatedly applies a module of row functions.'
 
     parser = default_arg_parser(description)
 
@@ -1025,7 +1231,7 @@ def row_reducer_arg_parser():
 
     return parser
 
-def row_reducer_g(row_g, fieldnames, reductions, coercions=None, N=10):
+def row_reduce_g(row_g, fieldnames, reductions, coercions=None, N=10):
 
     for row in row_g:
 
@@ -1053,9 +1259,9 @@ def row_reducer_g(row_g, fieldnames, reductions, coercions=None, N=10):
 
         yield row
             
-def row_reducer_program():
+def row_reduce_program():
 
-    parser = row_reducer_arg_parser()
+    parser = row_reduce_arg_parser()
 
     args = parser.parse_args()
 
@@ -1093,7 +1299,7 @@ def row_reducer_program():
         # Filter.
         #
 
-        filter_g = row_reducer_g(
+        filter_g = row_reduce_g(
                             row_g=reader_g,
                             fieldnames=fieldnames,
                             coercions=coercions,
