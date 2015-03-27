@@ -16,9 +16,14 @@ from prettytable import PrettyTable
 import importlib
 from pprint import pformat
 from numbers import Number
+import traceback
+from copy import copy
 
 
+K_NASTRINGs = [ '', 'NA', 'NONE', ]
+K_NASTRINGs = [x.strip().upper() for x in K_NASTRINGs]
 
+K_NAs = K_NASTRINGs + [ None, [], ]
 
 
 
@@ -164,6 +169,16 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
     # Writer
     #
 
+    # FIXME should be an option
+    def caster(x):
+        def caster0(v):
+            if type(v) is float and v.is_integer():
+                return int(v)
+            return v
+        if type(x) is dict:
+            return {k: caster0(v) for k, v in x.iteritems()}
+        return caster0(x)
+
     if dialect == 'pretty':
         def wf(gen):
 
@@ -175,7 +190,7 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
                 w = PrettyTable(fieldnames)
 
             for row in gen:
-                w.add_row([row[fn] for fn in fieldnames])
+                w.add_row([caster(row[fn]) for fn in fieldnames])
 
             f.write(w.get_string()) 
             f.write('\n')
@@ -186,7 +201,7 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
             w = DictWriter(f, dialect=dialect, fieldnames=fieldnames)
             if not headless:
                 w.writeheader()
-            w.writerows(row for row in gen)
+            w.writerows(caster(row) for row in gen)
 
         return wf
 
@@ -349,7 +364,7 @@ def sort_arg_parser():
     parser.add_argument(
             '--nastrings', 
             nargs='*',
-            default=['None', 'NA', '',],
+            default=K_NASTRINGs,
             help='Values which get converted to *None* prior to sorting.'
         )
 
@@ -367,7 +382,7 @@ def sort_arg_parser():
 
     return parser
 
-def sort_g(row_g, cols, asc=True, numeric=False, nastrings=['', 'NA', 'None']):
+def sort_g(row_g, cols, asc=True, numeric=False, nastrings=K_NASTRINGs):
     """
     :param row_g: Rows to sort. :row_g: must be a generator of dictionaries.
     :param cols: Columns for keys. :cols: must be a generator of strings.
@@ -379,7 +394,7 @@ def sort_g(row_g, cols, asc=True, numeric=False, nastrings=['', 'NA', 'None']):
     def mkkey():
 
         def caster(y):
-            y = y.strip()
+            y = y.strip().upper()
             if y in nastrings:
                 return None
             if numeric:
@@ -581,7 +596,10 @@ def dialect_program():
 
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+
+        parser.error(m)
+        
 
 
 
@@ -1107,6 +1125,12 @@ def diff_program():
         if fieldnames0 != fieldnames1:
             raise Exception("'{}' and '{}' have different columns.".format(args.file0, args.file1))
 
+        if args.keyname:
+            if not args.keyname in fieldnames0:
+                raise Exception("Column '{}' is not in FILE0.".format(args.keyname))
+            if not args.keyname in fieldnames1:
+                raise Exception("Column '{}' is not in FILE1.".format(args.keyname))
+
         filter_d = diff_d(
                             row0_g=reader0_g,
                             row1_g=reader1_g,
@@ -1149,15 +1173,200 @@ def diff_program():
 
 
 
+def join_arg_parser():
+    
+    description = 'CSVU join computes the join of two CSV files.'
+
+    parser = argparse.ArgumentParser(description)
+
+    parser.add_argument(
+            '--headless',
+            default=False,
+            action='store_true',
+            help='''Does the CSV have named columns (a header)?''',
+        )
+
+    parser.add_argument(
+            '--keyname',
+            default=None,
+            required=True,
+            help='''The key column name, if any.''',
+        )
+
+    parser.add_argument(
+            '--dialect0', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab',],
+            help='''The dialect of the first CSV input.
+                    Option *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
+        )
+
+    parser.add_argument(
+            '--dialect1', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab',],
+            help='''The dialect of the second CSV input.
+                    See --dialect0.
+                    '''
+        )
+
+    parser.add_argument(
+            '--dialect2', 
+            default='dialect0', 
+            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
+            help='''The dialect of the CVS output.
+                    Option *dialect0* uses the same dialect as the input,
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs,
+                    *pretty* prints a human-readable table.
+                    '''
+        )
+
+    parser.add_argument(
+            '--file0', 
+            type=str, 
+            default='-',
+            help='The first input CSV file, defaults to STDIN.'
+        )
+
+    parser.add_argument(
+            '--file1', 
+            type=str, 
+            required=True,
+            help='The second input CSV file, no default.'
+        )
+
+    parser.add_argument(
+            '--file2', 
+            type=str, 
+            default='-',
+            help='The output CSV file, defaults to STDOUT.'
+        )
+
+    return parser
+
+def join_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname):
+
+    fn0 = set(fieldnames0)
+    fn1 = set(fieldnames1)
+    fnd = fn1 - fn0
+
+    fieldnames = copy(fieldnames0)
+    for fn in fieldnames1:
+        if fn in fnd:
+            fieldnames.append(fn)
+
+    def g():
+
+        s0 = sorted(row0_g, key=itemgetter(keyname))
+        s1 = sorted(row1_g, key=itemgetter(keyname))
+
+        g0 = iter(s0)
+        g1 = iter(s1)
+
+        row0 = next(g0)
+        row1 = next(g1)
+
+        def k(x):
+            return x[keyname]
+
+        while True:
+            while k(row0) < k(row1):
+                row0 = next(g0)
+            while k(row0) > k(row1):
+                row1 = next(g1)
+            row0.update(row1)
+            yield row0
+            row0 = next(g0)
+            row1 = next(g1)
+
+    return {'fieldnames': fieldnames, 'join_g': g()}
+            
+def join_program():
+
+    parser = join_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader0_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        reader1_d = reader_make(
+                        fname=args.file1,
+                        dialect=args.dialect1,
+                        headless=args.headless,
+                    )
+
+        dialect0    = reader0_d['dialect']
+        fieldnames0 = reader0_d['fieldnames']
+        reader0_g   = reader0_d['reader']
+
+        dialect1    = reader1_d['dialect']
+        fieldnames1 = reader1_d['fieldnames']
+        reader1_g   = reader1_d['reader']
+
+        if not args.keyname in fieldnames0:
+            raise Exception("Column '{}' is not in FILE0.".format(args.keyname))
+        if not args.keyname in fieldnames1:
+            raise Exception("Column '{}' is not in FILE1.".format(args.keyname))
+
+        filter_d = join_d(
+                            row0_g=reader0_g,
+                            row1_g=reader1_g,
+                            fieldnames0=fieldnames0,
+                            fieldnames1=fieldnames1,
+                            keyname=args.keyname,
+                        )
+
+        fieldnames2 = filter_d['fieldnames']
+        filter_g    = filter_d['join_g']
+
+        dialect2 = args.dialect2
+
+        if dialect2 == 'dialect0':
+            dialect2 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file2,
+                        dialect=dialect2,
+                        headless=args.headless,
+                        fieldnames=fieldnames2,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        m = traceback.format_exc()
+
+        parser.error(exc)
 
 
-K_NAs = [
-            '', 
-            'NA', 
-            'NONE', 
-            None, 
-            [],
-        ]
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def isnum(x):
     return isinstance(x, Number)
@@ -1181,7 +1390,11 @@ def tona_or(f):
 def tonn_or(f):
     def g(x):
         x = f(x)
-        if not isnum(x) or x < 0:
+        if isna(x):
+            return x
+        if not isnum(x):
+            raise Exception("Not a number: {}".format(x))
+        if x < 0:
             raise Exception("Negative argument: {}".format(x))
         return x
     return g
@@ -1292,6 +1505,13 @@ def row_reduce_arg_parser():
     return parser
 
 def row_reduce_g(row_g, fieldnames, reductions, coercions=None, N=10):
+
+    if coercions:
+        f = getattr(coercions, 'K_NAs', None)
+        if type(f) is list:
+            for k in f:
+                if not k in K_NAs:
+                    K_NAs.append(k)
 
     for row in row_g:
 
