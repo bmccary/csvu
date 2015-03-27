@@ -1078,7 +1078,7 @@ def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
         for fn in fieldnames:
             if fn == keyname:
                 keeps.append(fn)
-            elif not all(isna(row[fn]) for row in rows):
+            elif not all(isna(row[fn]) for row in rows): # FIXME thread nastrings
                 keeps.append(fn)
 
         def diff_g2():
@@ -1374,21 +1374,20 @@ def isnum(x):
 def isstr(x):
     return isinstance(x, basestring)
 
-def isna(x):
+def isna(x, K=K_NAs):
     if isstr(x):
         x = x.strip().upper()
-
-    return x in K_NAs
+    return x in K
 
 def tona_or(f):
-    def g(x):
+    def g(x, isna=isna):
         if isna(x):
             return None
         return f(x)
     return g
 
 def tonn_or(f):
-    def g(x):
+    def g(x, isna=isna):
         x = f(x)
         if isna(x):
             return x
@@ -1405,40 +1404,39 @@ toint   = tona_or(int)
 tonnfloat = tonn_or(tofloat)
 tonnint   = tonn_or(toint)
 
-def tozero(x):
+def tozero(x, isna=isna):
     if isna(x):
         return 0.0
-
     return x
 
-def sum0(X):
+def sum0(X, isna=isna):
     if isna(X):
         return None
     elif all(isna(x) for x in X):
         return None
-    return float(sum(tozero(x) for x in X))
+    return float(sum(tozero(x, isna=isna) for x in X))
 
-def mean0(X):
-    s = sum0(X)
+def mean0(X, isna=isna):
+    s = sum0(X, isna=isna)
     if isna(s):
         return None
     return s / len(X)
 
-def drop0(X, N):
-    Y = sorted((tofloat(x) for x in X), reverse=False)
+def drop0(X, N, isna=isna):
+    Y = sorted((tofloat(x, isna=isna) for x in X), reverse=False)
     return Y[N:]
 
-def max0(X):
+def max0(X, isna=isna):
     if isna(X):
         return None
-    return max(tofloat(x) for x in X)
+    return max(tofloat(x, isna=isna) for x in X)
 
 def min0(X):
     if isna(X):
         return None
-    return min(tofloat(x) for x in X)
+    return min(tofloat(x, isna=isna) for x in X)
 
-def equal0(x, y):
+def equal0(x, y, isna=isna):
     if isna(x) and isna(y):
         return True
 
@@ -1452,7 +1450,7 @@ def equal0(x, y):
 
     return x == y
 
-def inner0(X, Y):
+def inner0(X, Y, isna=isna):
     if all(isna(x) for x in X) or all(isna(y) for y in Y):
         return None
     return sum(x * y for x, y in izip(
@@ -1482,6 +1480,14 @@ def row_reduce_arg_parser():
                     '''
         )
 
+    parser.add_argument(
+            '--formats', 
+            type=str,
+            default='formats',
+            help='''The file from which to get formats.
+                    '''
+        )
+
     def positive_int(x):
         try:
             y = int(x)
@@ -1504,14 +1510,7 @@ def row_reduce_arg_parser():
 
     return parser
 
-def row_reduce_g(row_g, fieldnames, reductions, coercions=None, N=10):
-
-    if coercions:
-        f = getattr(coercions, 'K_NAs', None)
-        if type(f) is list:
-            for k in f:
-                if not k in K_NAs:
-                    K_NAs.append(k)
+def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
 
     for row in row_g:
 
@@ -1536,6 +1535,17 @@ def row_reduce_g(row_g, fieldnames, reductions, coercions=None, N=10):
                 if equal0(v0, v1):
                     break
                 row[fn] = v1
+
+        if formats:
+            for fn in fieldnames:
+                f = getattr(formats, fn, None)
+                if not callable(f):
+                    continue
+                try:
+                    row[fn] = f(row[fn])
+                except Exception as exc:
+                    m = "The following row could not be formatted '{}':\n\n\t{}\n\nFor the following reason: \n\n\t{}\n".format(fn, pformat(row), exc)
+                    raise Exception(m)
 
         yield row
             
@@ -1569,6 +1579,7 @@ def row_reduce_program():
 
         coercions  = importlib.import_module(args.coercions)
         reductions = importlib.import_module(args.reductions)
+        formats    = importlib.import_module(args.formats)
 
         for m in [coercions, reductions]:
             init = getattr(m, 'init', None)
@@ -1584,6 +1595,7 @@ def row_reduce_program():
                             fieldnames=fieldnames,
                             coercions=coercions,
                             reductions=reductions,
+                            formats=formats,
                         )
 
 
