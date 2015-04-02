@@ -321,7 +321,8 @@ def xlsx_to_csv_program():
 
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
 
 
 
@@ -597,7 +598,6 @@ def dialect_program():
     except Exception as exc:
 
         m = traceback.format_exc()
-
         parser.error(m)
         
 
@@ -1409,12 +1409,17 @@ def tozero(x, isna=isna):
         return 0.0
     return x
 
+def tonone(x, isna=isna):
+    if isna(x):
+        None
+    return x
+
 def sum0(X, isna=isna):
     if isna(X):
         return None
     elif all(isna(x) for x in X):
         return None
-    return float(sum(tozero(x, isna=isna) for x in X))
+    return tofloat(sum(tozero(x, isna=isna) for x in X))
 
 def mean0(X, isna=isna):
     s = sum0(X, isna=isna)
@@ -1423,18 +1428,18 @@ def mean0(X, isna=isna):
     return s / len(X)
 
 def drop0(X, N, isna=isna):
-    Y = sorted((tofloat(x, isna=isna) for x in X), reverse=False)
+    Y = sorted((tonone(x, isna=isna) for x in X), reverse=False)
     return Y[N:]
 
 def max0(X, isna=isna):
     if isna(X):
         return None
-    return max(tofloat(x, isna=isna) for x in X)
+    return max(tonone(x, isna=isna) for x in X)
 
-def min0(X):
+def min0(X, isna=isna):
     if isna(X):
         return None
-    return min(tofloat(x, isna=isna) for x in X)
+    return min(tonone(x, isna=isna) for x in X)
 
 def equal0(x, y, isna=isna):
     if isna(x) and isna(y):
@@ -1581,11 +1586,6 @@ def row_reduce_program():
         reductions = importlib.import_module(args.reductions)
         formats    = importlib.import_module(args.formats)
 
-        for m in [coercions, reductions]:
-            init = getattr(m, 'init', None)
-            if callable(init):
-                init()
-
         #
         # Filter.
         #
@@ -1619,7 +1619,8 @@ def row_reduce_program():
                         
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
 
 
 
