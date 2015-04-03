@@ -86,6 +86,20 @@ def default_arg_dialect1_as_output(parser):
                     '''
         )
 
+def default_arg_dialect2(parser):
+
+    parser.add_argument(
+            '--dialect2', 
+            default='dialect0', 
+            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
+            help='''The CSV dialect of the output.
+                    Option *dialect0* uses the same dialect as file0,
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs,
+                    *pretty* prints a human-readable table.
+                    '''
+        )
+
 def default_arg_file0(parser):
 
     parser.add_argument(
@@ -118,8 +132,8 @@ def default_arg_file2(parser):
     parser.add_argument(
             '--file2', 
             type=str, 
-            required=True,
-            help='Input CSV file.'
+            default='-',
+            help='Output CSV file, defaults to STDOUT.'
         )
 
 
@@ -1059,7 +1073,7 @@ def cut_arg_parser():
                     file0='input',
                     file1='output',
                     dialect0='input',
-                    dialect1='input',
+                    dialect1='output',
                     headless=True,
                 )
 
@@ -1078,8 +1092,7 @@ def cut_arg_parser():
             '--negate',
             default=False, 
             action='store_true', 
-            help='''Include only columns not listed.
-                    '''
+            help='''Include only columns not listed.'''
         )
 
     return parser
@@ -1172,9 +1185,16 @@ def diff_arg_parser():
             help='''Omit empty rows/cols.''',
         )
 
+    parser.add_argument(
+            '--nastrings', 
+            nargs='*',
+            default=K_NASTRINGs,
+            help='Values which get converted to *None* prior to diffing.'
+        )
+
     return parser
 
-def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
+def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False, nastrings=K_NASTRINGs):
 
     def diff_g1():
         for row0, row1 in izip(row0_g, row1_g):
@@ -1201,7 +1221,7 @@ def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
         for fn in fieldnames:
             if fn == keyname:
                 keeps.append(fn)
-            elif not all(isna(row[fn]) for row in rows): # FIXME thread nastrings
+            elif not all(isna(row[fn], K=nastrings) for row in rows):
                 keeps.append(fn)
 
         def diff_g2():
@@ -1260,6 +1280,7 @@ def diff_program():
                             fieldnames=fieldnames0,
                             keyname=args.keyname,
                             compact=args.compact,
+                            nastrings=args.nastrings,
                         )
 
         fieldnames2 = filter_d['fieldnames']
