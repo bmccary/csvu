@@ -20,6 +20,7 @@ setup(
                     'bin/csvu-diff',
                     'bin/csvu-grep',
                     'bin/csvu-join',
+                    'bin/csvu-pretty',
                     'bin/csvu-row-reduce',
                     'bin/csvu-sniff',
                     'bin/csvu-sort',

@@ -29,9 +29,7 @@ K_NAs = K_NASTRINGs + [ None, [], ]
 
 
 
-def default_arg_parser(description):
-
-    parser = argparse.ArgumentParser(description=description)
+def default_arg_headless(parser):
 
     parser.add_argument(
             '--headless',
@@ -40,11 +38,13 @@ def default_arg_parser(description):
             help='''Use this flag if there is no header.''',
         )
 
+def default_arg_dialect0(parser):
+
     parser.add_argument(
             '--dialect0', 
             default='sniff', 
             choices=['sniff', 'excel', 'excel-tab',],
-            help='''The dialect of the CSV input.
+            help='''The CSV dialect of file0.
                     Option *sniff* detects the dialect, 
                     *excel* dialect uses commas, 
                     *excel-tab* uses tabs.
@@ -55,31 +55,118 @@ def default_arg_parser(description):
                     '''
         )
 
+def default_arg_dialect1_as_input(parser):
+
+    parser.add_argument(
+            '--dialect1', 
+            default='sniff', 
+            choices=['sniff', 'excel', 'excel-tab',],
+            help='''The CSV dialect of file1.
+                    Option *sniff* detects the dialect, 
+                    *excel* dialect uses commas, 
+                    *excel-tab* uses tabs.
+                    Note that *sniff* will load the
+                    entire file into memory, so for large
+                    files it may be better to explicitly
+                    specify the dialect.
+                    '''
+        )
+
+def default_arg_dialect1_as_output(parser):
+
     parser.add_argument(
             '--dialect1', 
             default='dialect0', 
             choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
-            help='''The dialect of the CVS output.
-                    Option *dialect0* uses the same dialect as the input,
+            help='''The CSV dialect of the output.
+                    Option *dialect0* uses the same dialect as file0,
                     *excel* dialect uses commas, 
                     *excel-tab* uses tabs,
                     *pretty* prints a human-readable table.
                     '''
         )
 
+def default_arg_file0(parser):
+
     parser.add_argument(
             '--file0', 
             type=str, 
             default='-',
-            help='The input CSV file, defaults to STDIN.'
+            help='Input CSV file, defaults to STDIN.'
         )
+
+def default_arg_file1_as_input(parser):
+
+    parser.add_argument(
+            '--file1', 
+            type=str,
+            required=True,
+            help='Input CSV file.'
+        )
+
+def default_arg_file1_as_output(parser):
 
     parser.add_argument(
             '--file1', 
             type=str, 
             default='-',
-            help='The output CSV file, defaults to STDOUT.'
+            help='Output CSV file, defaults to STDOUT.'
         )
+
+def default_arg_file2(parser):
+
+    parser.add_argument(
+            '--file2', 
+            type=str, 
+            required=True,
+            help='Input CSV file.'
+        )
+
+
+
+def default_arg_parser(
+        description,
+        headless=None,
+        dialect0=None,
+        dialect1=None,
+        dialect2=None,
+        file0=None,
+        file1=None,
+        file2=None,
+    ):
+
+    parser = argparse.ArgumentParser(description=description)
+
+    if headless:
+        default_arg_headless(parser)
+
+    if dialect0:
+        default_arg_dialect0(parser)
+
+    if dialect1 is not None:
+        if dialect1 == 'input':
+            default_arg_dialect1_as_input(parser)
+        elif dialect1 == 'output':
+            default_arg_dialect1_as_output(parser)
+        else:
+            raise Exception("Bad dialect1: {}".format(dialect1))
+
+    if dialect2:
+        default_arg_dialect2(parser)
+
+    if file0:
+        default_arg_file0(parser)
+
+    if file1 is not None:
+        if file1 == 'input':
+            default_arg_file1_as_input(parser)
+        elif file1 == 'output':
+            default_arg_file1_as_output(parser)
+        else:
+            raise Exception("Bad file1: {}".format(dialect1))
+
+    if file2:
+        default_arg_file2(parser)
 
     return parser
 
@@ -169,16 +256,6 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
     # Writer
     #
 
-    # FIXME should be an option
-    def caster(x):
-        def caster0(v):
-            if type(v) is float and v.is_integer():
-                return int(v)
-            return v
-        if type(x) is dict:
-            return {k: caster0(v) for k, v in x.iteritems()}
-        return caster0(x)
-
     if dialect == 'pretty':
         def wf(gen):
 
@@ -190,7 +267,7 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
                 w = PrettyTable(fieldnames)
 
             for row in gen:
-                w.add_row([caster(row[fn]) for fn in fieldnames])
+                w.add_row([row[fn] for fn in fieldnames])
 
             f.write(w.get_string()) 
             f.write('\n')
@@ -201,7 +278,7 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
             w = DictWriter(f, dialect=dialect, fieldnames=fieldnames)
             if not headless:
                 w.writeheader()
-            w.writerows(caster(row) for row in gen)
+            w.writerows(row for row in gen)
 
         return wf
 
@@ -221,14 +298,16 @@ def xlsx_to_csv_arg_parser():
 
     description='CSVU xlsx-to-csv converts a sheet of an XLSX file to CSV.'
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = default_arg_parser(
+                    description=description,
+                    file1='output',
+                )
 
     parser.add_argument(
-            'file',
-            nargs='?',
+            '--file0', 
+            type=str, 
             default='-',
-            type=str,
-            help='The XLSX file.'
+            help='The XLSX file, defaults to STDIN.'
         )
 
     def nonnegative_int(x):
@@ -252,18 +331,11 @@ def xlsx_to_csv_arg_parser():
             '--dialect1', 
             default='excel', 
             choices=['excel', 'excel-tab', 'pretty',],
-            help='''The dialect of the CVS output.
+            help='''The CSV dialect of the output.
                     Option *excel* dialect uses commas, 
                     *excel-tab* uses tabs,
                     *pretty* prints a human-readable table.
                     '''
-        )
-
-    parser.add_argument(
-            '--file1', 
-            type=str, 
-            default='-',
-            help='The output CSV file, defaults to STDOUT.'
         )
 
     return parser
@@ -293,7 +365,7 @@ def xlsx_to_csv_program():
 
         f = None
 
-        if args.file == '-':
+        if args.file0 == '-':
             # OpenPYXL needs random access to the XLSX
             # file, so dump STDIN into a StringIO.
             f = StringIO(sys.stdin.read())
@@ -343,7 +415,16 @@ def xlsx_to_csv_program():
 
 def sort_arg_parser():
 
-    parser = default_arg_parser('CSVU Sort is like GNU Sort, but for CSV files.')
+    description = 'CSVU Sort is like GNU Sort, but for CSV files.'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
 
     parser.add_argument(
             '--columns', 
@@ -474,7 +555,9 @@ def sort_program():
 
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -500,14 +583,10 @@ def sort_program():
 def sniff_arg_parser():
 
     description = 'CSVU sniff will determine the dialect of a CSV file.'
-    parser = argparse.ArgumentParser(description=description)
-
-    parser.add_argument(
-        '--file', 
-        type=str, 
-        default='-',
-        help='The input CSV file, defaults to STDIN.'
-    )
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                )
 
     return parser
 
@@ -521,7 +600,7 @@ def sniff_program():
 
         f = sys.stdin
 
-        if args.file != '-':
+        if args.file0 != '-':
             f = open(args.file, 'r')
 
         sample = f.read(2**16)
@@ -539,7 +618,9 @@ def sniff_program():
 
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -551,7 +632,14 @@ def sniff_program():
 
 def dialect_arg_parser():
     description = 'CSVU dialect converts one CSV dialect to another.'
-    parser = default_arg_parser(description)
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
     return parser
 
 def dialect_g(row_g):
@@ -601,6 +689,61 @@ def dialect_program():
         parser.error(m)
         
 
+def pretty_arg_parser():
+    description = 'CSVU pretty pretty-prints a CSV file.'
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    headless=True,
+                )
+    return parser
+
+def pretty_g(row_g):
+
+    return row_g
+    
+def pretty_program():
+
+    parser = pretty_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_g = dialect_g(
+                            row_g=reader_g,
+                        )
+
+        dialect1 = 'pretty'
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+                        
+
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
+        
+
 
 
 
@@ -616,7 +759,14 @@ def dialect_program():
 
 def tr_arg_parser():
     description = 'CSVU tr is like GNU tr, but for CSV files.'
-    parser = default_arg_parser(description)
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
     parser.add_argument(
             '--columns', 
             required=False, 
@@ -701,7 +851,9 @@ def tr_program():
 
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -718,7 +870,14 @@ def tr_program():
 
 def grep_arg_parser():
     description = 'CSVU grep is like GNU grep, but for CSV files.'
-    parser = default_arg_parser(description)
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
     parser.add_argument(
             '--negate',
             '-v', 
@@ -728,13 +887,15 @@ def grep_arg_parser():
             help='Include only non-matches.'
         )
     parser.add_argument(
-            'column', 
+            '--column', 
             type=str,
+            required=True,
             help='The column to grep upon.'
         )
     parser.add_argument(
-            'regex', 
+            '--regex', 
             type=str,
+            required=True,
             help='The regular expression (see the python re module).'
         )
     return parser
@@ -795,7 +956,9 @@ def grep_program():
 
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -806,7 +969,13 @@ def grep_program():
 def transpose_arg_parser():
     
     description = 'CSVU transpose will transpose a CSV file.'
-    parser = default_arg_parser(description)
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                )
     return parser
 
 def transpose_d(row_g, fieldnames):
@@ -836,8 +1005,6 @@ def transpose_program():
     parser = transpose_arg_parser()
 
     args = parser.parse_args()
-
-    # FIXME: Need to remove --headless from arg parser.
 
     try:
 
@@ -875,7 +1042,9 @@ def transpose_program():
                         
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -885,7 +1054,14 @@ def transpose_program():
 def cut_arg_parser():
     
     description = 'CSVU cut is like GNU cut, but for CSV files.'
-    parser = default_arg_parser(description)
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='input',
+                    headless=True,
+                )
 
     parser.add_argument(
             '--columns', 
@@ -956,7 +1132,9 @@ def cut_program():
                         
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -970,14 +1148,16 @@ def diff_arg_parser():
     
     description = 'CSVU diff computes the diff between two CSV files.'
 
-    parser = argparse.ArgumentParser(description)
-
-    parser.add_argument(
-            '--headless',
-            default=False,
-            action='store_true',
-            help='''Does the CSV have named columns (a header)?''',
-        )
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='input',
+                    file2='output',
+                    dialect0='input',
+                    dialect1='input',
+                    dialect2='output',
+                    headless=True,
+                )
 
     parser.add_argument(
             '--keyname',
@@ -992,63 +1172,6 @@ def diff_arg_parser():
             help='''Omit empty rows/cols.''',
         )
 
-    parser.add_argument(
-            '--dialect0', 
-            default='sniff', 
-            choices=['sniff', 'excel', 'excel-tab',],
-            help='''The dialect of the first CSV input.
-                    Option *sniff* detects the dialect, 
-                    *excel* dialect uses commas, 
-                    *excel-tab* uses tabs.
-                    Note that *sniff* will load the
-                    entire file into memory, so for large
-                    files it may be better to explicitly
-                    specify the dialect.
-                    '''
-        )
-
-    parser.add_argument(
-            '--dialect1', 
-            default='sniff', 
-            choices=['sniff', 'excel', 'excel-tab',],
-            help='''The dialect of the second CSV input.
-                    See --dialect0.
-                    '''
-        )
-
-    parser.add_argument(
-            '--dialect2', 
-            default='dialect0', 
-            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
-            help='''The dialect of the CVS output.
-                    Option *dialect0* uses the same dialect as the input,
-                    *excel* dialect uses commas, 
-                    *excel-tab* uses tabs,
-                    *pretty* prints a human-readable table.
-                    '''
-        )
-
-    parser.add_argument(
-            '--file0', 
-            type=str, 
-            default='-',
-            help='The first input CSV file, defaults to STDIN.'
-        )
-
-    parser.add_argument(
-            '--file1', 
-            type=str, 
-            required=True,
-            help='The second input CSV file, no default.'
-        )
-
-    parser.add_argument(
-            '--file2', 
-            type=str, 
-            default='-',
-            help='The output CSV file, defaults to STDOUT.'
-        )
-
     return parser
 
 def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
@@ -1059,7 +1182,7 @@ def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False):
                 k0 = row0[keyname]
                 k1 = row1[keyname]
                 if k0 != k1:
-                    raise Exception("Difference in key column, cannot diff!")
+                    raise Exception("Difference in key column, cannot diff: {} != {}".format(k0, k1))
             d = False
             for fn in fieldnames:
                 v0 = row0[fn]
@@ -1158,7 +1281,9 @@ def diff_program():
                         
     except Exception as exc:
 
-        parser.error(exc)
+        m = traceback.format_exc()
+        parser.error(m)
+
 
 
 
@@ -1177,77 +1302,22 @@ def join_arg_parser():
     
     description = 'CSVU join computes the join of two CSV files.'
 
-    parser = argparse.ArgumentParser(description)
-
-    parser.add_argument(
-            '--headless',
-            default=False,
-            action='store_true',
-            help='''Does the CSV have named columns (a header)?''',
-        )
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='input',
+                    file2='output',
+                    dialect0='input',
+                    dialect1='input',
+                    dialect2='output',
+                    headless=True,
+                )
 
     parser.add_argument(
             '--keyname',
             default=None,
             required=True,
             help='''The key column name, if any.''',
-        )
-
-    parser.add_argument(
-            '--dialect0', 
-            default='sniff', 
-            choices=['sniff', 'excel', 'excel-tab',],
-            help='''The dialect of the first CSV input.
-                    Option *sniff* detects the dialect, 
-                    *excel* dialect uses commas, 
-                    *excel-tab* uses tabs.
-                    Note that *sniff* will load the
-                    entire file into memory, so for large
-                    files it may be better to explicitly
-                    specify the dialect.
-                    '''
-        )
-
-    parser.add_argument(
-            '--dialect1', 
-            default='sniff', 
-            choices=['sniff', 'excel', 'excel-tab',],
-            help='''The dialect of the second CSV input.
-                    See --dialect0.
-                    '''
-        )
-
-    parser.add_argument(
-            '--dialect2', 
-            default='dialect0', 
-            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
-            help='''The dialect of the CVS output.
-                    Option *dialect0* uses the same dialect as the input,
-                    *excel* dialect uses commas, 
-                    *excel-tab* uses tabs,
-                    *pretty* prints a human-readable table.
-                    '''
-        )
-
-    parser.add_argument(
-            '--file0', 
-            type=str, 
-            default='-',
-            help='The first input CSV file, defaults to STDIN.'
-        )
-
-    parser.add_argument(
-            '--file1', 
-            type=str, 
-            required=True,
-            help='The second input CSV file, no default.'
-        )
-
-    parser.add_argument(
-            '--file2', 
-            type=str, 
-            default='-',
-            help='The output CSV file, defaults to STDOUT.'
         )
 
     return parser
@@ -1259,9 +1329,7 @@ def join_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname):
     fnd = fn1 - fn0
 
     fieldnames = copy(fieldnames0)
-    for fn in fieldnames1:
-        if fn in fnd:
-            fieldnames.append(fn)
+    fieldnames.extend(fn for fn in fieldnames1 if fn in fnd)
 
     def g():
 
@@ -1350,8 +1418,8 @@ def join_program():
     except Exception as exc:
 
         m = traceback.format_exc()
+        parser.error(m)
 
-        parser.error(exc)
 
 
 
@@ -1467,30 +1535,33 @@ def row_reduce_arg_parser():
 
     description = 'CSVU row-reduce repeatedly applies a module of row functions.'
 
-    parser = default_arg_parser(description)
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                )
 
     parser.add_argument(
             '--reductions', 
             type=str,
             default='reductions',
-            help='''The file from which to get reductions.
-                    '''
+            help='''The file from which to get reductions.'''
         )
 
     parser.add_argument(
             '--coercions', 
             type=str,
             default='coercions',
-            help='''The file from which to get coercions.
-                    '''
+            help='''The file from which to get coercions.'''
         )
 
     parser.add_argument(
             '--formats', 
             type=str,
             default='formats',
-            help='''The file from which to get formats.
-                    '''
+            help='''The file from which to get formats.'''
         )
 
     def positive_int(x):
@@ -1507,8 +1578,7 @@ def row_reduce_arg_parser():
             '--N',
             default=10,
             type=positive_int,
-            help='''The number of iterations to attempt.
-                    '''
+            help='''The number of iterations to attempt per row.'''
         )
 
    
