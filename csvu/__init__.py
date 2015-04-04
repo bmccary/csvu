@@ -1173,12 +1173,19 @@ def cut_arg_parser():
     parser.add_argument(
             '--columns', 
             type=str, 
-            required=True,
             nargs='+',
             help='''The columns to cut.
                     If *headless* then *columns* are integers starting
                     with 0 otherwise *columns* are named columns.
                     '''
+        )
+    parser.add_argument(
+            '--rename',
+            metavar=('from', 'to'),
+            type=str,
+            nargs=2,
+            action='append',
+            help='Rename *from* to *to*.',
         )
     parser.add_argument(
             '--negate',
@@ -1188,17 +1195,25 @@ def cut_arg_parser():
         )
     return parser
 
-def cut_d(row_g, cols, fieldnames, negate=False):
+def cut_d(row_g, fieldnames, columns, renames, negate=False):
 
-    for c in cols:
+    if renames:
+        if columns:
+            renames.extend((c, c) for c in columns)
+    elif columns:
+            renames = [(c, c) for c in columns]
+    else:
+        raise Exception("Need renames or columns.")
+
+    for c, r in renames:
         if not c in fieldnames:
             raise Exception("Column not found: {}".format(c))
 
-    fieldnames1 = [c for c in fieldnames if (c in cols) ^ negate]
+    fieldnames1 = [r for c, r in renames]
 
     def g():
         for row in row_g:
-            yield {c: row[c] for c in fieldnames1}
+            yield {r: row[c] for c, r in renames}
 
     return {'fieldnames': fieldnames1, 'generator': g()}
 
@@ -1207,6 +1222,9 @@ def cut_program():
     parser = cut_arg_parser()
 
     args = parser.parse_args()
+
+    if args.columns is None and args.rename is None:
+        parser.error("need argument --columns or argument --rename or both")
 
     try:
 
@@ -1223,7 +1241,8 @@ def cut_program():
         filter_d = cut_d(
                             row_g=reader_g,
                             fieldnames=fieldnames,
-                            cols=args.columns,
+                            columns=args.columns,
+                            renames=args.rename,
                             negate=args.negate,
                         )
 
