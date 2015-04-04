@@ -149,7 +149,10 @@ def default_arg_parser(
         file2=None,
     ):
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(
+                    description=description,
+                    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                )
 
     if headless:
         default_arg_headless(parser)
@@ -367,7 +370,7 @@ def xlsx_to_csv_d(f, sheet=0):
         for row in ws.rows:
             yield {k: (c.value or '') for k, c in izip_longest(K, row, fillvalue='')}
 
-    return {'fieldnames': K, 'xlsx_to_csv_g': g()}
+    return {'fieldnames': K, 'generator': g()}
 
 def xlsx_to_csv_program():
 
@@ -393,7 +396,7 @@ def xlsx_to_csv_program():
                         )
 
         fieldnames = filter_d['fieldnames']
-        filter_g   = filter_d['xlsx_to_csv_g']
+        filter_g   = filter_d['generator']
 
         writer_f = writer_make(
                         fname=args.file1,
@@ -403,7 +406,6 @@ def xlsx_to_csv_program():
                     )
 
         writer_f(filter_g)
-                        
 
     except Exception as exc:
 
@@ -419,6 +421,103 @@ def xlsx_to_csv_program():
 
 
 
+
+
+
+
+
+
+
+
+def column_rename_arg_parser():
+
+    description = 'CSVU column rename will rename columns.'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                )
+
+    parser.add_argument(
+            '--rename',
+            metavar=('from', 'to'),
+            type=str,
+            nargs=2,
+            action='append',
+            required=True,
+            help='Rename *from* to *to*.',
+        )
+
+    return parser
+
+def column_rename_d(row_g, fieldnames, renames):
+
+    for from_, to in renames:
+        if from_ not in fieldnames:
+            raise Exception('*from* not found: {}'.format(from_))
+        if from_ == to:
+            raise Exception('*from* == *to*, abort: {} == {}'.format(from_, to))
+
+    renames_d = {k: v for k, v in renames}
+    fieldnames1 = [renames_d.get(k, k) for k in fieldnames]
+    fieldnames1_set = set()
+    for fn in fieldnames1:
+        if fn in fieldnames1_set:
+            raise Exception('Rename would result in a duplicate column: {}'.format(fn))
+        fieldnames1_set.add(fn)
+
+    def g():
+        for row in row_g:
+            yield {renames_d.get(k, k): v for k, v in row.iteritems()}
+
+    return {'fieldnames': fieldnames1, 'generator': g()}
+
+def column_rename_program():
+
+    parser = column_rename_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_d = column_rename_d(
+                            row_g=reader_g,
+                            fieldnames=fieldnames,
+                            renames=args.rename,
+                        )
+
+        fieldnames1 = filter_d['fieldnames']
+        filter_g    = filter_d['generator']
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        fieldnames=fieldnames1,
+                    )
+
+        writer_f(filter_g)
+
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
 
 
 
@@ -565,7 +664,6 @@ def sort_program():
                     )
 
         writer_f(filter_g)
-                        
 
     except Exception as exc:
 
@@ -695,7 +793,6 @@ def dialect_program():
                     )
 
         writer_f(filter_g)
-                        
 
     except Exception as exc:
 
@@ -750,7 +847,6 @@ def pretty_program():
                     )
 
         writer_f(filter_g)
-                        
 
     except Exception as exc:
 
@@ -895,9 +991,8 @@ def grep_arg_parser():
     parser.add_argument(
             '--negate',
             '-v', 
-            default=True, 
-            action='store_const', 
-            const=False,
+            default=False, 
+            action='store_true', 
             help='Include only non-matches.'
         )
     parser.add_argument(
@@ -921,7 +1016,7 @@ def grep_g(row_g, col, regex, negate):
 
     for row in row_g:
         m = regex.search(row[col]) is None
-        if m ^ negate:
+        if not m ^ negate:
             yield row
 
 def grep_program():
@@ -966,7 +1061,6 @@ def grep_program():
                     )
 
         writer_f(filter_g)
-                        
 
     except Exception as exc:
 
@@ -1012,7 +1106,7 @@ def transpose_d(row_g, fieldnames):
         for row in izip(*rows):
             yield {i: c for i, c in izip(keys, row)}
 
-    return {'fieldnames': keys, 'transpose_g': g()}
+    return {'fieldnames': keys, 'generator': g()}
 
 def transpose_program():
 
@@ -1037,7 +1131,7 @@ def transpose_program():
                             fieldnames=fieldnames,
                         )
 
-        filter_g   = filter_d['transpose_g']
+        filter_g   = filter_d['generator']
         fieldnames = filter_d['fieldnames']
 
         dialect1 = args.dialect1
@@ -1076,31 +1170,37 @@ def cut_arg_parser():
                     dialect1='output',
                     headless=True,
                 )
-
     parser.add_argument(
             '--columns', 
             type=str, 
             required=True,
             nargs='+',
             help='''The columns to cut.
-                    If --headless then --columns are integers starting
-                    with 0 otherwise --columns are named columns.
+                    If *headless* then *columns* are integers starting
+                    with 0 otherwise *columns* are named columns.
                     '''
         )
-
     parser.add_argument(
             '--negate',
             default=False, 
             action='store_true', 
             help='''Include only columns not listed.'''
         )
-
     return parser
 
-def cut_g(row_g, cols, fieldnames, negate=False):
+def cut_d(row_g, cols, fieldnames, negate=False):
 
-    for row in row_g:
-        yield {c: row[c] for c in fieldnames if (c in cols) ^ negate}
+    for c in cols:
+        if not c in fieldnames:
+            raise Exception("Column not found: {}".format(c))
+
+    fieldnames1 = [c for c in fieldnames if (c in cols) ^ negate]
+
+    def g():
+        for row in row_g:
+            yield {c: row[c] for c in fieldnames1}
+
+    return {'fieldnames': fieldnames1, 'generator': g()}
 
 def cut_program():
 
@@ -1120,25 +1220,26 @@ def cut_program():
         fieldnames = reader_d['fieldnames']
         reader_g   = reader_d['reader']
 
-        filter_g = cut_g(
+        filter_d = cut_d(
                             row_g=reader_g,
                             fieldnames=fieldnames,
                             cols=args.columns,
                             negate=args.negate,
                         )
 
+        filter_g    = filter_d['generator']
+        fieldnames1 = filter_d['fieldnames']
+
         dialect1 = args.dialect1
 
         if dialect1 == 'dialect0':
             dialect1 = dialect0
 
-        fieldnames = [c for c in fieldnames if (c in args.columns) ^ args.negate]
-
         writer_f = writer_make(
                         fname=args.file1,
                         dialect=dialect1,
                         headless=args.headless,
-                        fieldnames=fieldnames,
+                        fieldnames=fieldnames1,
                     )
 
         writer_f(filter_g)
@@ -1228,12 +1329,12 @@ def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False, nastrings=K_
             for row in rows:
                 yield {fn: row[fn] for fn in keeps}
 
-        return {'fieldnames': keeps, 'diff_g': diff_g2()}
+        return {'fieldnames': keeps, 'generator': diff_g2()}
 
     if compact:
         return diff_d()
 
-    return {'fieldnames': fieldnames, 'diff_g': diff_g1()}
+    return {'fieldnames': fieldnames, 'generator': diff_g1()}
 
     
 
@@ -1284,7 +1385,7 @@ def diff_program():
                         )
 
         fieldnames2 = filter_d['fieldnames']
-        filter_g    = filter_d['diff_g']
+        filter_g    = filter_d['generator']
 
         dialect2 = args.dialect2
 
@@ -1376,7 +1477,7 @@ def join_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname):
             row0 = next(g0)
             row1 = next(g1)
 
-    return {'fieldnames': fieldnames, 'join_g': g()}
+    return {'fieldnames': fieldnames, 'generator': g()}
             
 def join_program():
 
@@ -1420,7 +1521,7 @@ def join_program():
                         )
 
         fieldnames2 = filter_d['fieldnames']
-        filter_g    = filter_d['join_g']
+        filter_g    = filter_d['generator']
 
         dialect2 = args.dialect2
 
@@ -1602,8 +1703,6 @@ def row_reduce_arg_parser():
             help='''The number of iterations to attempt per row.'''
         )
 
-   
-
     return parser
 
 def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
@@ -1688,7 +1787,6 @@ def row_reduce_program():
                             reductions=reductions,
                             formats=formats,
                         )
-
 
         #
         # CSV writer.

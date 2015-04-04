@@ -15,6 +15,7 @@ setup(
                 'PrettyTable', # For printing human-readable CSV on console
             ],
         scripts=[
+                    'bin/csvu-column-rename',
                     'bin/csvu-cut',
                     'bin/csvu-dialect',
                     'bin/csvu-diff',
