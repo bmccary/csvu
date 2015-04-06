@@ -10,7 +10,7 @@ import re
 import string
 import sys
 import os
-from itertools import izip, izip_longest
+from itertools import izip, izip_longest, chain
 from operator import itemgetter
 from prettytable import PrettyTable
 import importlib
@@ -18,6 +18,7 @@ from pprint import pformat
 from numbers import Number
 import traceback
 from copy import copy
+from functools import partial
 
 
 K_NASTRINGs = [ '', 'NA', 'NONE', ]
@@ -286,6 +287,8 @@ def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
             for row in gen:
                 w.add_row([row[fn] for fn in fieldnames])
 
+            w.align = 'l'
+
             f.write(w.get_string()) 
             f.write('\n')
 
@@ -422,6 +425,101 @@ def xlsx_to_csv_program():
 
 
 
+
+
+
+
+
+
+
+def put_arg_parser():
+
+    description = 'CSVU put will put constant values in columns.'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                )
+
+    parser.add_argument(
+            '--put',
+            metavar=('column', 'value'),
+            type=str,
+            nargs=2,
+            action='append',
+            required=True,
+            help='Put *value* to *column*.',
+        )
+
+    return parser
+
+def put_d(row_g, fieldnames, puts):
+
+    fieldnames1 = copy(fieldnames)
+
+    puts_set = set()
+
+    for c, v in puts:
+        if c in puts_set:
+            raise Exception("Duplicate put: {}".format(c))
+        puts_set.add(c)
+        if not c in fieldnames1:
+            fieldnames1.append(c)
+
+    puts_d = {c: v for c, v in puts}
+
+    def g():
+        for row in row_g:
+            yield {fn: puts_d.get(fn, row.get(fn)) for fn in fieldnames1}
+
+    return {'fieldnames': fieldnames1, 'generator': g()}
+
+def put_program():
+
+    parser = put_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_d = put_d(
+                            row_g=reader_g,
+                            fieldnames=fieldnames,
+                            puts=args.put,
+                        )
+
+        fieldnames1 = filter_d['fieldnames']
+        filter_g    = filter_d['generator']
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        fieldnames=fieldnames1,
+                    )
+
+        writer_f(filter_g)
+
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
 
 
 
@@ -1159,6 +1257,91 @@ def transpose_program():
 
 
 
+def cat_arg_parser():
+    
+    description = 'CSVU cat is like GNU cat, but for CSV files.'
+    parser = default_arg_parser(
+                    description=description,
+                    file1='output',
+                    headless=True,
+                )
+    parser.add_argument(
+            '--dialect1', 
+            default='excel', 
+            choices=['excel', 'excel-tab', 'pretty',],
+            help='''The CSV dialect of the output.
+                    Option *excel* dialect uses commas, 
+                    *excel-tab* uses tabs,
+                    *pretty* prints a human-readable table.
+                    '''
+        )
+    parser.add_argument(
+            '--files', 
+            type=str, 
+            nargs='+',
+            help='''The CSV files to cat.'''
+        )
+    return parser
+
+def cat_d(rows_g, fieldnames):
+
+    fns0 = fieldnames[0]
+    for fnsi in fieldnames[1:]:
+        if fns0 != fnsi:
+            raise Exception("Column mismatch: {} != {}".format(fns0, fnsi))
+
+    fieldnames1 = fns0
+
+    def g():
+        for row in chain(*rows_g):
+            yield row
+
+    return {'fieldnames': fieldnames1, 'generator': g()}
+
+def cat_program():
+
+    parser = cat_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        fieldnames = []
+        readers_g  = []
+
+        for fname in args.files:
+            reader_d = reader_make(
+                            fname=fname,
+                            dialect='sniff',
+                            headless=args.headless,
+                        )
+            fieldnames.append(reader_d['fieldnames'])
+            readers_g.append(reader_d['reader'])
+
+        filter_d = cat_d(
+                            rows_g=readers_g,
+                            fieldnames=fieldnames,
+                        )
+
+        filter_g    = filter_d['generator']
+        fieldnames1 = filter_d['fieldnames']
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=args.dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames1,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
+
+
+
 def cut_arg_parser():
     
     description = 'CSVU cut is like GNU cut, but for CSV files.'
@@ -1291,57 +1474,89 @@ def diff_arg_parser():
                     dialect2='output',
                     headless=True,
                 )
-
     parser.add_argument(
             '--keyname',
             default=None,
             help='''The key column name, if any.''',
         )
-
     parser.add_argument(
             '--compact',
             default=False,
             action='store_true',
             help='''Omit empty rows/cols.''',
         )
-
+    parser.add_argument(
+            '--coercions', 
+            type=str,
+            default='coercions',
+            help='''The file from which to get coercions.'''
+        )
     parser.add_argument(
             '--nastrings', 
             nargs='*',
             default=K_NASTRINGs,
             help='Values which get converted to *None* prior to diffing.'
         )
-
     return parser
 
-def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False, nastrings=K_NASTRINGs):
+def diff_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname=None, compact=False, coercions=None, nastrings=K_NASTRINGs):
+
+    fieldnames0_set = set(fieldnames0)
+    fieldnames1_set = set(fieldnames1)
+
+    if not fieldnames0_set.issubset(fieldnames1_set):
+        raise Exception("SET0 is not a subset of SET1, abort!")
+
+    if keyname:
+        if not keyname in fieldnames0_set:
+            raise Exception("keyname '{}' is not in SET0.".format(keyname))
+        if not keyname in fieldnames1_set:
+            raise Exception("keyname '{}' is not in SET1.".format(keyname))
+
+    equal0_ = equal0 
+    isna_   = isna
+
+    if coercions:
+        equal0_ = getattr(coercions, 'equal0', equal0)
+        isna_   = getattr(coercions, 'isna', isna)
 
     def diff_g1():
         for row0, row1 in izip(row0_g, row1_g):
             if keyname:
-                k0 = row0[keyname]
-                k1 = row1[keyname]
-                if k0 != k1:
-                    raise Exception("Difference in key column, cannot diff: {} != {}".format(k0, k1))
-            d = False
-            for fn in fieldnames:
-                v0 = row0[fn]
-                v1 = row1[fn]
-                if equal0(v0, v1):
-                    if fn != keyname:
+                v0 = row0[keyname]
+                v1 = row1[keyname]
+                if v0 != v1:
+                    raise Exception("Difference in key column, cannot diff: {} != {}".format(v0, v1))
+            for fn in fieldnames1:
+                if fn == keyname:
+                    continue
+                v0 = row0.get(fn)
+                v1 = row1.get(fn)
+                if False:
+                    f = getattr(coercions, fn, None)
+                    if callable(f):
+                        try:
+                            v0 = f(v0)
+                        except Exception as exc:
+                            raise Exception("file0 row[{fn}] = {} is invalid/uncoercable: {}".format(fn, v0, exc))
+                        try:
+                            v1 = f(v1)
+                        except Exception as exc:
+                            raise Exception("file1 row[{fn}] = {} is invalid/uncoercable: {}".format(fn, v1, exc))
+                    if equal0_(v0, v1):
                         row1[fn] = None
                 else:
-                    d = True
-            if (not compact) or d:
-                yield row1
+                    if v0 == v1:
+                        row1[fn] = None
+            yield row1
 
-    def diff_d():
-        rows = [row for row in diff_g1()]
+    def diff_d1():
+        rows = [row for row in diff_g1() if any(row[fn] for fn in fieldnames1 if fn != keyname)]
         keeps = []
-        for fn in fieldnames:
+        for fn in fieldnames1:
             if fn == keyname:
                 keeps.append(fn)
-            elif not all(isna(row[fn], K=nastrings) for row in rows):
+            elif any(row[fn] for row in rows):
                 keeps.append(fn)
 
         def diff_g2():
@@ -1351,9 +1566,9 @@ def diff_d(row0_g, row1_g, fieldnames, keyname=None, compact=False, nastrings=K_
         return {'fieldnames': keeps, 'generator': diff_g2()}
 
     if compact:
-        return diff_d()
+        return diff_d1()
 
-    return {'fieldnames': fieldnames, 'generator': diff_g1()}
+    return {'fieldnames': fieldnames1, 'generator': diff_g1()}
 
     
 
@@ -1385,21 +1600,18 @@ def diff_program():
         fieldnames1 = reader1_d['fieldnames']
         reader1_g   = reader1_d['reader']
 
-        if fieldnames0 != fieldnames1:
-            raise Exception("'{}' and '{}' have different columns.".format(args.file0, args.file1))
+        sys.path.append(os.getcwd())
 
-        if args.keyname:
-            if not args.keyname in fieldnames0:
-                raise Exception("Column '{}' is not in FILE0.".format(args.keyname))
-            if not args.keyname in fieldnames1:
-                raise Exception("Column '{}' is not in FILE1.".format(args.keyname))
+        coercions = importlib.import_module(args.coercions)
 
         filter_d = diff_d(
                             row0_g=reader0_g,
                             row1_g=reader1_g,
-                            fieldnames=fieldnames0,
+                            fieldnames0=fieldnames0,
+                            fieldnames1=fieldnames1,
                             keyname=args.keyname,
                             compact=args.compact,
+                            coercions=coercions,
                             nastrings=args.nastrings,
                         )
 
@@ -1434,6 +1646,91 @@ def diff_program():
 
 
 
+
+
+
+
+
+def rank_arg_parser():
+    
+    description = 'CSVU rank computes the rank CSV files.'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
+
+    parser.add_argument(
+            '--column',
+            default=None,
+            required=True,
+            help='''The column to insert the rank into''',
+        )
+
+    return parser
+
+def rank_d(row_g, fieldnames, column):
+
+    fieldnames1 = copy(fieldnames)
+
+    if not column in fieldnames1:
+        fieldnames1.append(column)
+
+    def g():
+        for i, row in enumerate(row_g):
+            row[column] = i
+            yield row
+
+    return {'fieldnames': fieldnames1, 'generator': g()}
+            
+def rank_program():
+
+    parser = rank_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0    = reader_d['dialect']
+        fieldnames0 = reader_d['fieldnames']
+        reader_g    = reader_d['reader']
+
+        filter_d = rank_d(
+                            row_g=reader_g,
+                            fieldnames=fieldnames0,
+                            column=args.column,
+                        )
+
+        fieldnames1 = filter_d['fieldnames']
+        filter_g    = filter_d['generator']
+
+        dialect1 = args.dialect1
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames1,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
 
 
 
@@ -1584,34 +1881,37 @@ def isstr(x):
     return isinstance(x, basestring)
 
 def isna(x, K=K_NAs):
+    if x is None:
+        return True
     if isstr(x):
         x = x.strip().upper()
     return x in K
 
-def tona_or(f):
-    def g(x, isna=isna):
-        if isna(x):
-            return None
-        return f(x)
-    return g
-
-def tonn_or(f):
-    def g(x, isna=isna):
-        x = f(x)
-        if isna(x):
-            return x
-        if not isnum(x):
-            raise Exception("Not a number: {}".format(x))
-        if x < 0:
-            raise Exception("Negative argument: {}".format(x))
+def tofloat(x, isna=isna):
+    if isna(x):
         return x
-    return g
+    return float(x)
 
-tofloat = tona_or(float)
-toint   = tona_or(int)
+def toint(x, isna=isna):
+    if isna(x):
+        return x
+    return float(x)
 
-tonnfloat = tonn_or(tofloat)
-tonnint   = tonn_or(toint)
+def tonnint(x, isna=isna):
+    if isna(x):
+        return x
+    y = toint(x)
+    if isnum(y) and y >= 0.0:
+        return y
+    raise Exception("Cannot convert to non-negative int: {}".format(x))
+
+def tonnfloat(x, isna=isna):
+    if isna(x):
+        return x
+    y = tofloat(x)
+    if isnum(y) and y >= 0.0:
+        return y
+    raise Exception("Cannot convert to non-negative float: {}".format(x))
 
 def tozero(x, isna=isna):
     if isna(x):
@@ -1620,7 +1920,7 @@ def tozero(x, isna=isna):
 
 def tonone(x, isna=isna):
     if isna(x):
-        None
+        return None
     return x
 
 def sum0(X, isna=isna):
@@ -1650,12 +1950,14 @@ def min0(X, isna=isna):
         return None
     return min(tonone(x, isna=isna) for x in X)
 
-def equal0(x, y, isna=isna):
-    if isna(x) and isna(y):
-        return True
+def equal0(x, y, isna=isna, tol=1e-5):
+    #if isna(x) and isna(y):
+    #    if isstr(x) and isstr(y):
+    #        return x.strip().upper() == y.strip().upper()
+    #    return True
 
     if isnum(x) and isnum(y):
-        return abs(x - y) < 1e-5
+        return abs(x - y) < tol
 
     if isstr(x) and isstr(y):
         x = x.strip()
@@ -1726,6 +2028,13 @@ def row_reduce_arg_parser():
 
 def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
 
+    equal0_ = equal0 
+
+    if coercions:
+        isna_   = getattr(coercions, 'isna', isna)
+        equal0_ = getattr(coercions, 'equal0', equal0)
+        equal0_ = partial(equal0_, isna=isna_)
+
     for row in row_g:
 
         if coercions:
@@ -1736,7 +2045,7 @@ def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=
                 try:
                     row[fn] = f(row[fn])
                 except Exception as exc:
-                    m = "The following row has an invalid/uncoercable '{}':\n\n\t{}\n\nFor the following reason: \n\n\t{}\n".format(fn, pformat(row), exc)
+                    m = "row[{}] = {} could not be coerced: {}".format(fn, row[fn], exc)
                     raise Exception(m)
 
         for fn in fieldnames:
@@ -1746,9 +2055,9 @@ def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=
             for i in xrange(N):
                 v0 = row[fn]
                 v1 = f(row)
-                if equal0(v0, v1):
-                    break
                 row[fn] = v1
+                if equal0_(v0, v1):
+                    break
 
         if formats:
             for fn in fieldnames:
@@ -1758,7 +2067,7 @@ def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=
                 try:
                     row[fn] = f(row[fn])
                 except Exception as exc:
-                    m = "The following row could not be formatted '{}':\n\n\t{}\n\nFor the following reason: \n\n\t{}\n".format(fn, pformat(row), exc)
+                    m = "row[{}] = {} could not be formatted: {}".format(fn, row[fn], exc)
                     raise Exception(m)
 
         yield row
@@ -1778,7 +2087,6 @@ def row_reduce_program():
         reader_d = reader_make(
                         fname=args.file0,
                         dialect=args.dialect0,
-                        headless=args.headless,
                     )
 
         dialect0   = reader_d['dialect']
@@ -1819,7 +2127,6 @@ def row_reduce_program():
         writer_f = writer_make(
                         fname=args.file1,
                         dialect=dialect1,
-                        headless=args.headless,
                         fieldnames=fieldnames,
                     )
 
