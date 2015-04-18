@@ -1969,10 +1969,7 @@ def equal0(x, y, isna=isna, tol=1e-5):
 def inner0(X, Y, isna=isna):
     if all(isna(x) for x in X) or all(isna(y) for y in Y):
         return None
-    return sum(x * y for x, y in izip(
-                                        (tozero(x) for x in X), 
-                                        (tozero(y) for y in Y),
-                                ))
+    return sum(u * v for u, v in izip((tozero(x, isna=isna) for x in X), (tozero(y, isna=isna) for y in Y)))
 
 def row_reduce_arg_parser():
 

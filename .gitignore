@@ -55,3 +55,6 @@ target/
 
 # CSV
 *.csv
+
+# vim
+*.swp
