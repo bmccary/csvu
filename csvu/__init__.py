@@ -14,7 +14,7 @@ from itertools import izip, izip_longest, chain
 from operator import itemgetter
 from prettytable import PrettyTable
 import importlib
-from pprint import pformat
+from pprint import pformat, pprint
 from numbers import Number
 import traceback
 from copy import copy
@@ -26,9 +26,28 @@ K_NASTRINGs = [x.strip().upper() for x in K_NASTRINGs]
 
 K_NAs = K_NASTRINGs + [ None, [], ]
 
+DELIMITERS = ',\t|'
 
 
+def positive_int(x):
+    try:
+        y = int(x)
+        if y < 1:
+            raise None
+        return y
+    except:
+        m = "Not a nonnegative integer: '{}'".format(x)
+        raise argparse.ArgumentTypeError(m)
 
+
+def default_arg_debug(parser):
+
+    parser.add_argument(
+            '--debug',
+            default=False,
+            action='store_true',
+            help='''Use this flag when debugging these scripts.''',
+        )
 
 def default_arg_headless(parser):
 
@@ -186,6 +205,8 @@ def default_arg_parser(
     if file2:
         default_arg_file2(parser)
 
+    default_arg_debug(parser)
+
     return parser
 
 
@@ -232,7 +253,10 @@ def reader_make(fname='-', dialect='sniff', headless=False):
         f = StringIO(f.read())
         sample = f.read()
         f.reset()
-        dialect = Sniffer().sniff(sample)
+        try:
+            dialect = Sniffer().sniff(sample, delimiters=DELIMITERS)
+        except:
+            dialect = excel
 
     #
     # Reader
@@ -774,6 +798,161 @@ def sort_program():
 
 
 
+def head_arg_parser():
+
+    description = 'CSVU Head is like GNU Head, but for CSV files.'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
+
+    parser.add_argument(
+            'count', 
+            type=positive_int, 
+            help='''Return the first :count: rows.'''
+        )
+
+    return parser
+
+def head_g(row_g, count, debug=False):
+    for i, row in enumerate(row_g):
+        if i >= count:
+            break
+        yield row
+
+def head_program():
+
+    parser = head_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_g = head_g(
+                            row_g=reader_g,
+                            count=args.count,
+                        )
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
+
+
+
+
+
+
+
+
+
+
+
+
+
+def tail_arg_parser():
+
+    description = 'CSVU Tail is like GNU Tail, but for CSV files.'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
+
+    parser.add_argument(
+            'count', 
+            type=positive_int, 
+            help='''Return the last :count: rows.'''
+        )
+
+    return parser
+
+def tail_g(row_g, count, debug=False):
+    L = list(row_g)
+    for row in L[-count:]:
+        yield row
+
+def tail_program():
+
+    parser = tail_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0   = reader_d['dialect']
+        fieldnames = reader_d['fieldnames']
+        reader_g   = reader_d['reader']
+
+        filter_g = tail_g(
+                            row_g=reader_g,
+                            count=args.count,
+                        )
+
+        dialect1 = args.dialect1
+
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames,
+                    )
+
+        writer_f(filter_g)
+
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
+
+
+
+
+
+
+
 
 
 
@@ -798,6 +977,13 @@ def sniff_arg_parser():
                     file0='input',
                 )
 
+    parser.add_argument(
+            '--N', 
+            type=positive_int, 
+            default=1024,
+            help='The number of characters to use in the sniff.'
+        )
+
     return parser
 
 def sniff_program():
@@ -811,11 +997,11 @@ def sniff_program():
         f = sys.stdin
 
         if args.file0 != '-':
-            f = open(args.file, 'r')
+            f = open(args.file0, 'r')
 
-        sample = f.read(2**16)
+        sample = f.read(args.N)
 
-        dialect = Sniffer().sniff(sample)
+        dialect = Sniffer().sniff(sample, delimiters=DELIMITERS)
 
         v = vars(dialect)
 
@@ -1094,15 +1280,13 @@ def grep_arg_parser():
             help='Include only non-matches.'
         )
     parser.add_argument(
-            '--column', 
+            'column', 
             type=str,
-            required=True,
             help='The column to grep upon.'
         )
     parser.add_argument(
-            '--regex', 
+            'regex',
             type=str,
-            required=True,
             help='The regular expression (see the python re module).'
         )
     return parser
@@ -1286,9 +1470,9 @@ def cat_arg_parser():
 def cat_d(rows_g, fieldnames):
 
     fns0 = fieldnames[0]
-    for fnsi in fieldnames[1:]:
+    for i, fnsi in enumerate(fieldnames[1:]):
         if fns0 != fnsi:
-            raise Exception("Column mismatch: {} != {}".format(fns0, fnsi))
+            raise Exception("Column mismatch: {}: {} != {}".format(i+1, fns0, fnsi))
 
     fieldnames1 = fns0
 
@@ -1381,9 +1565,14 @@ def cut_arg_parser():
 def cut_d(row_g, fieldnames, columns, renames, negate=False):
 
     if renames:
+        if negate:
+            raise Exception("negate and rename is not defined.")
         if columns:
             renames.extend((c, c) for c in columns)
     elif columns:
+        if negate:
+            renames = [(c, c) for c in fieldnames if not (c in columns)]
+        else:
             renames = [(c, c) for c in columns]
     else:
         raise Exception("Need renames or columns.")
@@ -1396,7 +1585,7 @@ def cut_d(row_g, fieldnames, columns, renames, negate=False):
 
     def g():
         for row in row_g:
-            yield {r: row[c] for c, r in renames}
+            yield {r: row[c] for c, r in renames if r in fieldnames1}
 
     return {'fieldnames': fieldnames1, 'generator': g()}
 
@@ -1408,6 +1597,9 @@ def cut_program():
 
     if args.columns is None and args.rename is None:
         parser.error("need argument --columns or argument --rename or both")
+
+    if args.rename and args.negate:
+        parser.error("negate and rename is not defined")
 
     try:
 
@@ -1667,23 +1859,41 @@ def rank_arg_parser():
     parser.add_argument(
             '--column',
             default=None,
+            help='''The column being ranked, assumed to be sorted.
+                    If not supplied then ties will not be accounted.''',
+        )
+
+    parser.add_argument(
+            '--target',
+            default=None,
             required=True,
             help='''The column to insert the rank into''',
         )
 
     return parser
 
-def rank_d(row_g, fieldnames, column):
+def rank_d(row_g, fieldnames, column, target):
 
     fieldnames1 = copy(fieldnames)
 
-    if not column in fieldnames1:
-        fieldnames1.append(column)
+    if not target in fieldnames1:
+        fieldnames1.append(target)
 
     def g():
-        for i, row in enumerate(row_g):
-            row[column] = i
-            yield row
+        if column:
+            prev = None
+            j = -1
+            for i, row in enumerate(row_g):
+                curr = row[column]
+                if curr != prev:
+                    j = i
+                row[target] = j
+                prev = curr
+                yield row
+        else:
+            for i, row in enumerate(row_g):
+                row[target] = i
+                yield row
 
     return {'fieldnames': fieldnames1, 'generator': g()}
             
@@ -1709,10 +1919,143 @@ def rank_program():
                             row_g=reader_g,
                             fieldnames=fieldnames0,
                             column=args.column,
+                            target=args.target,
                         )
 
         fieldnames1 = filter_d['fieldnames']
         filter_g    = filter_d['generator']
+
+        dialect1 = args.dialect1
+        if dialect1 == 'dialect0':
+            dialect1 = dialect0
+
+        writer_f = writer_make(
+                        fname=args.file1,
+                        dialect=dialect1,
+                        headless=args.headless,
+                        fieldnames=fieldnames1,
+                    )
+
+        writer_f(filter_g)
+                        
+    except Exception as exc:
+
+        m = traceback.format_exc()
+        parser.error(m)
+
+
+
+
+
+
+
+
+def levenshtein_arg_parser():
+    
+    description = 'CSVU Levenshtein computes the edit distance from a given string to the strings in a column'
+
+    parser = default_arg_parser(
+                    description=description,
+                    file0='input',
+                    file1='output',
+                    dialect0='input',
+                    dialect1='output',
+                    headless=True,
+                )
+
+    parser.add_argument(
+            '--column',
+            default=None,
+            required=True,
+            help='''The column being scored''',
+        )
+
+    parser.add_argument(
+            '--target',
+            default=None,
+            required=True,
+            help='''The column to insert the score into''',
+        )
+
+    parser.add_argument(
+            '--sort',
+            choices=['ascending', 'descending', 'none'],
+            default='ascending',
+            help='''How to sort the rows by score''',
+        )
+
+    parser.add_argument(
+            'string',
+            default=None,
+            help='''The string to score''',
+        )
+    
+    return parser
+
+from pyxdameraulevenshtein import damerau_levenshtein_distance
+
+def levenshtein_d(row_g, fieldnames, column, target, sort, string, debug=False):
+
+    fieldnames1 = copy(fieldnames)
+
+    if not target in fieldnames1:
+        fieldnames1.append(target)
+
+    def score_g():
+        for row in row_g:
+            row[target] = damerau_levenshtein_distance(row[column], string)
+            yield row
+
+    def sort_asc_g():
+        return sorted(score_g(), key=itemgetter(target))
+
+    def sort_dec_g():
+        return sorted(score_g(), key=itemgetter(target), reverse=True)
+
+    d = {
+            'ascending' : sort_asc_g,
+            'descending': sort_dec_g,
+            'none'      : score_g,
+        }
+
+    g = d[sort]
+
+    return {'fieldnames': fieldnames1, 'generator': g()}
+            
+def levenshtein_program():
+
+    parser = levenshtein_arg_parser()
+
+    args = parser.parse_args()
+
+    try:
+
+        reader_d = reader_make(
+                        fname=args.file0,
+                        dialect=args.dialect0,
+                        headless=args.headless,
+                    )
+
+        dialect0    = reader_d['dialect']
+        fieldnames0 = reader_d['fieldnames']
+        reader_g    = reader_d['reader']
+
+        filter_d = levenshtein_d(
+                            row_g=reader_g,
+                            fieldnames=fieldnames0,
+                            column=args.column,
+                            target=args.target,
+                            sort=args.sort,
+                            string=args.string,
+                            debug=args.debug,
+                        )
+
+        fieldnames1 = filter_d['fieldnames']
+        filter_g    = filter_d['generator']
+
+        if args.debug:
+            pprint(fieldnames0)
+            pprint(fieldnames1)
 
         dialect1 = args.dialect1
         if dialect1 == 'dialect0':
@@ -2004,16 +2347,6 @@ def row_reduce_arg_parser():
             help='''The file from which to get formats.'''
         )
 
-    def positive_int(x):
-        try:
-            y = int(x)
-            if y < 1:
-                raise None
-            return y
-        except:
-            m = "Not a nonnegative integer: '{}'".format(x)
-            raise argparse.ArgumentTypeError(m)
-
     parser.add_argument(
             '--N',
             default=10,
@@ -2049,12 +2382,16 @@ def row_reduce_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=
             f = getattr(reductions, fn, None)
             if not callable(f):
                 continue
-            for i in xrange(N):
-                v0 = row[fn]
-                v1 = f(row)
-                row[fn] = v1
-                if equal0_(v0, v1):
-                    break
+            try:
+                for i in xrange(N):
+                    v0 = row[fn]
+                    v1 = f(row)
+                    row[fn] = v1
+                    if equal0_(v0, v1):
+                        break
+            except Exception as exc:
+                m = "row[{}] = {} could not be reduced: {}".format(fn, row[fn], exc)
+                raise Exception(m)
 
         if formats:
             for fn in fieldnames:
@@ -2096,9 +2433,18 @@ def row_reduce_program():
 
         sys.path.append(os.getcwd())
 
-        coercions  = importlib.import_module(args.coercions)
+        try:
+            coercions = importlib.import_module(args.coercions)
+        except:
+            coercions = None
+
+        try:
+            formats = importlib.import_module(args.formats)
+        except:
+            formats = None
+
         reductions = importlib.import_module(args.reductions)
-        formats    = importlib.import_module(args.formats)
+            
 
         #
         # Filter.
