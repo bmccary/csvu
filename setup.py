@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
         name='csvu',
-        version='0.1',
+        version='0.9',
         description='CSV Utilities for the Command Line',
         url='http://github.com/bmccary/csvu',
         author='Brady McCary',
@@ -11,8 +11,9 @@ setup(
         license='MIT',
         packages=['csvu'],
         install_requires=[
-                'openpyxl',    # To open XLSX
-                'PrettyTable', # For printing human-readable CSV on console
+                'openpyxl',
+                'PrettyTable',
+                'pyxdameraulevenshtein',
             ],
         scripts=[
                     'bin/csvu-cat',
