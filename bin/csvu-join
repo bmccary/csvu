@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import join_program
-
-    join_program()
+    from csvu.join import cli
+    
+    cli()
 

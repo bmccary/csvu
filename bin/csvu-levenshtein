@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import levenshtein_program
-
-    levenshtein_program()
-
+    from csvu.levenshtein import cli
+    
+    cli()
+    

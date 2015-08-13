@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import head_program
+    from csvu.head import cli
 
-    head_program()
+    cli()
 

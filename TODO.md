@@ -1,11 +1,13 @@
 # TODO
 
+1. headless0 headless1
+
 ## Utils
 
-1. grep
-2. tr
-3. cut
-4. sort
-5. uniq
-6. printf
+1. tr
+    Needs to be able to delete.
+
+2. uniq
+
+3. printf
 

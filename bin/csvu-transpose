@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import transpose_program
-
-    transpose_program()
+    from csvu.transpose import cli
+    
+    cli()
 

@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import column_rename_program
+    from csvu.column_rename import cli
 
-    column_rename_program()
+    cli()
 

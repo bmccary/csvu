@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import pretty_program
-
-    pretty_program()
+    from csvu.pretty import cli
+    
+    cli()
 

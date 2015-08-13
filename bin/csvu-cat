@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import cat_program
-
-    cat_program()
+    from csvu.cat import cli
+    
+    cli()
 

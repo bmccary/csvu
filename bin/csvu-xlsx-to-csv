@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import xlsx_to_csv_program
+    from csvu.xlsx_to_csv import cli
 
-    xlsx_to_csv_program()
+    cli()
 

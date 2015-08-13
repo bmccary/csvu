@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import sort_program
-
-    sort_program()
+    from csvu.sort import cli
+    
+    cli()
 

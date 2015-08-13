@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import diff_program
-
-    diff_program()
+    from csvu.diff import cli
+    
+    cli()
 

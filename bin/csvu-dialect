@@ -2,7 +2,7 @@
 
 if __name__ == '__main__':
 
-    from csvu import dialect_program
-
-    dialect_program()
+    from csvu.dialect import cli
+    
+    cli()
 
