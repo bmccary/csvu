@@ -4,10 +4,10 @@ from operator import itemgetter
 import traceback
 
 from csvu import (
-        default_arg_parser, 
         reader_make,
         writer_make,
     )
+from csvu.cli import default_arg_parser
 
 def cli_arg_parser():
     

@@ -1,14 +1,13 @@
 
-from copy import copy
 from operator import itemgetter
 import traceback
 
 from csvu import (
-        default_arg_parser, 
         reader_make,
         writer_make,
-        K_NASTRINGs,
     )
+from csvu.cli import default_arg_parser
+from csvu.util import K_NASTRINGs
 
 def cli_arg_parser():
 

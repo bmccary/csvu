@@ -6,12 +6,14 @@ import sys
 import traceback
 
 from csvu import (
-        equal0,
-        isna,
-        default_arg_parser, 
-        K_NASTRINGs,
         reader_make,
         writer_make,
+    )
+from csvu.cli import default_arg_parser
+from csvu.util import (
+        equal0,
+        isna,
+        K_NASTRINGs,
     )
 
 def cli_arg_parser():

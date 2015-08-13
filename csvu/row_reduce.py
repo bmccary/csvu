@@ -7,13 +7,14 @@ import sys
 import traceback
 
 from csvu import (
-        equal0,
-        isna,
-        default_arg_parser,
-        positive_int,
         reader_make,
         writer_make,
     )
+from csvu.cli import (
+        default_arg_parser,
+        positive_int,
+    )
+from csvu.util import equal0
 
 def cli_arg_parser():
 
@@ -62,9 +63,7 @@ def filter_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
     equal0_ = equal0 
 
     if coercions:
-        isna_   = getattr(coercions, 'isna', isna)
         equal0_ = getattr(coercions, 'equal0', equal0)
-        equal0_ = partial(equal0_, isna=isna_)
 
     for row in row_g:
 

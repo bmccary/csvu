@@ -4,9 +4,9 @@ import sys
 import traceback
 from prettytable import PrettyTable
 
-from csvu import (
+from csvu import DELIMITERS
+from csvu.cli import (
         default_arg_parser,
-        DELIMITERS,
         positive_int,
     )
 

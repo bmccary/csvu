@@ -5,10 +5,10 @@ import openpyxl
 import sys
 import traceback
 
-from csvu import (
+from csvu import writer_make
+from csvu.cli import (
         default_arg_parser, 
         nonnegative_int,
-        writer_make,
     )
 
 def cli_arg_parser():
