@@ -173,7 +173,21 @@ def default_arg_parser(
     if file0:
         default_arg_file0(parser)
 
-    if file1 is not None:
+    class PrettyAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            if file1 == 'output':
+                setattr(namespace, 'dialect1', 'pretty')
+            if file2 == 'output':
+                setattr(namespace, 'dialect2', 'pretty')
+
+    parser.add_argument(
+            '--pretty',
+            nargs=0,
+            action=PrettyAction,
+            help='Use the pretty dialect for outputs.'
+        )
+
+    if file1:
         if file1 == 'input':
             default_arg_file1_as_input(parser)
         elif file1 == 'output':

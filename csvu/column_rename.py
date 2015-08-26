@@ -77,8 +77,8 @@ def cli():
                         renames=args.rename,
                     )
 
-        fieldnames1 = filter_d['fieldnames']
-        filter_g    = filter_d['generator']
+        fieldnames1 = d['fieldnames']
+        filter_g    = d['generator']
 
         dialect1 = args.dialect1
 

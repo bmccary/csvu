@@ -58,18 +58,40 @@ def cli_arg_parser():
 
     return parser
 
-def filter_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
+def filter_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10, debug=False):
 
     equal0_ = equal0 
 
     if coercions:
         equal0_ = getattr(coercions, 'equal0', equal0)
+        if not callable(equal0_):
+            raise Exception('Found a non-callable object named :equal0: in :coercions:')
+
+    def gimme_None(x):
+        return None
 
     for row in row_g:
 
         if coercions:
+            implicit_f = getattr(coercions, 'implicit_f', None)
+            if implicit_f is None:
+                implicit_f = gimme_None
+            elif callable(implicit_f):
+                pass
+            else:
+                raise Exception('Found a non-callable object named :implicit_f: in :coercions:')
             for fn in fieldnames:
-                f = getattr(coercions, fn, None)
+                explicit = getattr(coercions, fn, None)
+                implicit = implicit_f(fn)
+                if explicit is None or callable(explicit):
+                    pass
+                else:
+                    raise Exception('Found a non-callable object named :{}: in :coercions:'.format(fn))
+                if implicit is None or callable(implicit):
+                    pass
+                else:
+                    raise Exception('Found a non-callable object named :{}: in :coercions.implicit_f:'.format(fn))
+                f = explicit or implicit
                 if not callable(f):
                     continue
                 try:
@@ -78,8 +100,25 @@ def filter_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
                     m = "row[{}] = {} could not be coerced: {}".format(fn, row[fn], exc)
                     raise Exception(m)
 
+        implicit_f = getattr(reductions, 'implicit', None)
+        if implicit_f is None:
+            implicit_f = gimme_None
+        elif callable(implicit_f):
+            pass
+        else:
+            raise Exception('Found a non-callable object named :implicit_f: in :reductions:')
         for fn in fieldnames:
-            f = getattr(reductions, fn, None)
+            explicit = getattr(reductions, fn, None)
+            implicit = implicit_f(fn)
+            if explicit is None or callable(explicit):
+                pass
+            else:
+                raise Exception('Found a non-callable object named :{}: in :reductions:'.format(fn))
+            if implicit is None or callable(implicit):
+                pass
+            else:
+                raise Exception('Found a non-callable object named :{}: in :reductions.implicit_f:'.format(fn))
+            f = explicit or implicit
             if not callable(f):
                 continue
             try:
@@ -94,8 +133,25 @@ def filter_g(row_g, fieldnames, reductions, coercions=None, formats=None, N=10):
                 raise Exception(m)
 
         if formats:
+            implicit_f = getattr(formats, 'implicit_f', None)
+            if implicit_f is None:
+                implicit_f = gimme_None
+            elif callable(implicit_f):
+                pass
+            else:
+                raise Exception('Found a non-callable object named :implicit_f: in :formats:')
             for fn in fieldnames:
-                f = getattr(formats, fn, None)
+                explicit = getattr(formats, fn, None)
+                implicit = implicit_f(fn)
+                if explicit is None or callable(explicit):
+                    pass
+                else:
+                    raise Exception('Found a non-callable object named :{}: in :formats:'.format(fn))
+                if implicit is None or callable(implicit):
+                    pass
+                else:
+                    raise Exception('Found a non-callable object named :{}: in :formats.implicit_f:'.format(fn))
+                f = explicit or implicit
                 if not callable(f):
                     continue
                 try:
@@ -135,12 +191,12 @@ def cli():
 
         try:
             coercions = importlib.import_module(args.coercions)
-        except:
+        except ImportError:
             coercions = None
 
         try:
             formats = importlib.import_module(args.formats)
-        except:
+        except ImportError:
             formats = None
 
         reductions = importlib.import_module(args.reductions)
@@ -156,6 +212,7 @@ def cli():
                         coercions=coercions,
                         reductions=reductions,
                         formats=formats,
+                        debug=args.debug,
                     )
 
         #
