@@ -45,7 +45,7 @@ def default_arg_dialect0(parser):
     parser.add_argument(
             '--dialect0', 
             default='sniff', 
-            choices=['sniff', 'excel', 'excel-tab',],
+            choices=['excel', 'excel-tab', 'sniff',],
             help='''The CSV dialect of file0.
                     Option *sniff* detects the dialect, 
                     *excel* dialect uses commas, 
@@ -62,7 +62,7 @@ def default_arg_dialect1_as_input(parser):
     parser.add_argument(
             '--dialect1', 
             default='sniff', 
-            choices=['sniff', 'excel', 'excel-tab',],
+            choices=['excel', 'excel-tab', 'sniff',],
             help='''The CSV dialect of file1.
                     Option *sniff* detects the dialect, 
                     *excel* dialect uses commas, 
