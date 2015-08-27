@@ -1,5 +1,6 @@
 
 import argparse
+from operator import attrgetter
 
 def positive_int(x):
     try:
@@ -148,9 +149,14 @@ def default_arg_parser(
         file2=None,
     ):
 
+    class SortingHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+        def add_arguments(self, actions):
+            actions = sorted(actions, key=attrgetter('option_strings'))
+            super(SortingHelpFormatter, self).add_arguments(actions)
+
     parser = argparse.ArgumentParser(
                     description=description,
-                    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                    formatter_class=SortingHelpFormatter,
                 )
 
     if headless:
