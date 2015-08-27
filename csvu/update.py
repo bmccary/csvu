@@ -99,12 +99,10 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
                 elif extra_row_action == 'ignore':
                     pass
                 row1 = next(g1)
-            if k(row0) != k(row1):
-                continue
-            row0.update({k: v for k, v in row1.iteritems() if k in fieldnames2})
+            if k(row0) == k(row1):
+                row0.update({k: v for k, v in row1.iteritems() if k in fieldnames2})
             yield row0
             row0 = next(g0)
-            row1 = next(g1)
 
     return {'fieldnames': fieldnames2, 'generator': g()}
             
