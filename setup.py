@@ -23,7 +23,6 @@ setup(
                     'bin/csvu-diff',
                     'bin/csvu-grep',
                     'bin/csvu-head',
-                    'bin/csvu-join',
                     'bin/csvu-levenshtein',
                     'bin/csvu-pretty',
                     'bin/csvu-put',
