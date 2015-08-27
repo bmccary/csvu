@@ -9,8 +9,11 @@ from csvu import (
     )
 from csvu.cli import default_arg_parser
 
-EXTRASACTIONS = ['die', 'ignore',]
-EXTRASACTION_DEFAULT = 'ignore'
+EXTRA_ROW_ACTIONS = ['die', 'ignore',]
+EXTRA_ROW_ACTION_DEFAULT = 'ignore'
+
+EXTRA_COL_ACTIONS = ['die', 'ignore', 'insert']
+EXTRA_COL_ACTION_DEFAULT = 'insert'
 
 def cli_arg_parser():
     
@@ -34,24 +37,43 @@ def cli_arg_parser():
         )
 
     parser.add_argument(
-            '--extrasaction',
-            choices=EXTRASACTIONS,
-            default=EXTRASACTION_DEFAULT,
+            '--extra-row-action',
+            choices=EXTRA_ROW_ACTIONS,
+            default=EXTRA_ROW_ACTION_DEFAULT,
             help='''The action to take if extra rows are found in FILE1.''',
+        )
+
+    parser.add_argument(
+            '--extra-col-action',
+            choices=EXTRA_COL_ACTIONS,
+            default=EXTRA_COL_ACTION_DEFAULT,
+            help='''The action to take if extra cols are found in FILE1.''',
         )
 
     return parser
 
-def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname, extrasaction='ignore'):
+def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname, 
+                    extra_row_action=EXTRA_ROW_ACTION_DEFAULT,
+                    extra_col_action=EXTRA_COL_ACTION_DEFAULT,
+                ):
+
+    fieldnames2 = copy(fieldnames0)
 
     fn0 = set(fieldnames0)
     fn1 = set(fieldnames1)
 
     fnd10 = fn1 - fn0
-    fnd01 = fn0 - fn1
 
-    fieldnames = copy(fieldnames0)
-    fieldnames.extend(fn for fn in fieldnames1 if fn in fnd10)
+    if fnd10:
+        if extra_col_action == 'die':
+            extras = [c for c in fieldnames1 if c in fnd10]
+            raise Exception('Unexpected columns in FILE1: {}'.format(extras))
+        elif extra_col_action == 'ignore':
+            pass
+        elif extra_col_action == 'insert':
+            fieldnames2.extend(fn for fn in fieldnames1 if fn in fnd10)
+        else:
+            raise Exception('Unknown extra_col_action: {}'.format(extra_col_action))
 
     def g():
 
@@ -72,19 +94,19 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname, extrasaction='ig
             while k(row0) < k(row1):
                 row0 = next(g0)
             while k(row0) > k(row1):
-                if extrasaction == 'die':
+                if extra_row_action == 'die':
                     raise Exception('Unexpected row in FILE1: {}'.format(row1))
-                elif extrasaction == 'ignore':
+                elif extra_row_action == 'ignore':
                     pass
                 row1 = next(g1)
             if k(row0) != k(row1):
                 continue
-            row0.update(row1)
+            row0.update({k: v for k, v in row1.iteritems() if k in fieldnames2})
             yield row0
             row0 = next(g0)
             row1 = next(g1)
 
-    return {'fieldnames': fieldnames, 'generator': g()}
+    return {'fieldnames': fieldnames2, 'generator': g()}
             
 def cli():
 
@@ -125,7 +147,8 @@ def cli():
                         fieldnames0=fieldnames0,
                         fieldnames1=fieldnames1,
                         keyname=args.keyname,
-                        kind=args.kind,
+                        extra_row_action=args.extra_row_action,
+                        extra_col_action=args.extra_col_action,
                     )
 
         g           = d['generator']
