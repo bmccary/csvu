@@ -34,6 +34,7 @@ setup(
                     'bin/csvu-tail',
                     'bin/csvu-tr',
                     'bin/csvu-transpose',
+                    'bin/csvu-update',
                     'bin/csvu-xlsx-to-csv',
                 ],
         zip_safe=False
