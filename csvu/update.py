@@ -77,8 +77,10 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
 
     def g():
 
-        s0 = sorted(row0_g, key=itemgetter(keyname))
-        s1 = sorted(row1_g, key=itemgetter(keyname))
+        key = itemgetter(keyname)
+
+        s0 = sorted(row0_g, key=key)
+        s1 = sorted(row1_g, key=key)
 
         g0 = iter(s0)
         g1 = iter(s1)
@@ -86,21 +88,23 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
         row0 = next(g0)
         row1 = next(g1)
 
-        def k(x):
-            return x[keyname]
-
         while True:
             # Find the next row to update.
-            while k(row0) < k(row1):
+            while key(row0) < key(row1):
+                # No updates for this row.
+                yield row0
                 row0 = next(g0)
-            while k(row0) > k(row1):
+            while key(row0) > key(row1):
                 if extra_row_action == 'die':
                     raise Exception('Unexpected row in FILE1: {}'.format(row1))
                 elif extra_row_action == 'ignore':
                     pass
                 row1 = next(g1)
-            if k(row0) == k(row1):
+            if key(row0) == key(row1):
                 row0.update({k: v for k, v in row1.iteritems() if k in fieldnames2})
+            else:
+                # No updates for this row.
+                pass
             yield row0
             row0 = next(g0)
 
