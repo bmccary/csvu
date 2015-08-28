@@ -1,6 +1,10 @@
 # TODO
 
-1. headless0 headless1
+1. headless0, headless1
+
+2. Better csvu-* -h help.
+
+3. README examples.
 
 ## Utils
 
