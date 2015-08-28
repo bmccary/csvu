@@ -46,7 +46,7 @@ def default_arg_dialect0(parser):
             '--dialect0', 
             default='sniff', 
             choices=['excel', 'excel-tab', 'sniff',],
-            help='''The CSV dialect of file0.
+            help='''The CSV dialect of FILE0.
                     Option *sniff* detects the dialect, 
                     *excel* dialect uses commas, 
                     *excel-tab* uses tabs.
@@ -63,7 +63,7 @@ def default_arg_dialect1_as_input(parser):
             '--dialect1', 
             default='sniff', 
             choices=['excel', 'excel-tab', 'sniff',],
-            help='''The CSV dialect of file1.
+            help='''The CSV dialect of FILE1.
                     Option *sniff* detects the dialect, 
                     *excel* dialect uses commas, 
                     *excel-tab* uses tabs.
@@ -81,7 +81,7 @@ def default_arg_dialect1_as_output(parser):
             default='dialect0', 
             choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
             help='''The CSV dialect of the output.
-                    Option *dialect0* uses the same dialect as file0,
+                    Option *dialect0* uses the same dialect as FILE0,
                     *excel* dialect uses commas, 
                     *excel-tab* uses tabs,
                     *pretty* prints a human-readable table.
@@ -93,9 +93,10 @@ def default_arg_dialect2(parser):
     parser.add_argument(
             '--dialect2', 
             default='dialect0', 
-            choices=['dialect0', 'excel', 'excel-tab', 'pretty',],
+            choices=['dialect0', 'dialect1', 'excel', 'excel-tab', 'pretty',],
             help='''The CSV dialect of the output.
-                    Option *dialect0* uses the same dialect as file0,
+                    Option *dialect0* uses the same dialect as FILE0,
+                    Option *dialect1* uses the same dialect as FILE1,
                     *excel* dialect uses commas, 
                     *excel-tab* uses tabs,
                     *pretty* prints a human-readable table.

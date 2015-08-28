@@ -33,7 +33,7 @@ def cli_arg_parser():
     parser.add_argument(
             '--keyname',
             required=True,
-            help='''The key column name, if any.''',
+            help='''The key column name.''',
         )
 
     parser.add_argument(
@@ -156,6 +156,8 @@ def cli():
 
         if dialect2 == 'dialect0':
             dialect2 = dialect0
+        elif dialect2 == 'dialect1':
+            dialect2 = dialect1
 
         writer_f = writer_make(
                         fname=args.file2,

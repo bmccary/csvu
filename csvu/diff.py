@@ -176,6 +176,8 @@ def cli():
 
         if dialect2 == 'dialect0':
             dialect2 = dialect0
+        elif dialect2 == 'dialect1':
+            dialect2 = dialect1
 
         writer_f = writer_make(
                         fname=args.file2,
