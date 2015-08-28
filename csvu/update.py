@@ -90,18 +90,10 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
                 pass
             else:
                 raise Exception('Unknown extra_row_action: {}'.format(extra_row_action))
-
         for key0, row0 in d0.iteritems():
             if d1.has_key(key0):
                 row1 = d1[key0]
                 row0.update({k: row1[k] for k in fieldnames2 if k in fn1})
-            else:
-                if extra_row_action == 'die':
-                    raise Exception('Unexpected row in FILE1: {}'.format(extras))
-                elif extra_row_action == 'ignore':
-                    pass
-                else:
-                    raise Exception('Unknown extra_row_action: {}'.format(extra_row_action))
             yield row0
 
     return {'fieldnames': fieldnames2, 'generator': g()}
