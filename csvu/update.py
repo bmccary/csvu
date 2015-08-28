@@ -67,7 +67,7 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
     if fnd10:
         if extra_col_action == 'die':
             extras = [c for c in fieldnames1 if c in fnd10]
-            raise Exception('Unexpected columns in FILE1: {}'.format(extras))
+            raise Exception('Unexpected cols in FILE1: {}'.format(extras))
         elif extra_col_action == 'ignore':
             pass
         elif extra_col_action == 'insert':
@@ -76,37 +76,33 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
             raise Exception('Unknown extra_col_action: {}'.format(extra_col_action))
 
     def g():
-
         key = itemgetter(keyname)
+        d0 = {key(row0): row0 for row0 in row0_g}
+        d1 = {key(row1): row1 for row1 in row1_g}
+        s0 = d0.viewkeys()
+        s1 = d1.viewkeys()
+        sd = s1 - s0
+        if sd:
+            if extra_row_action == 'die':
+                extras = [s for s in s1 if s in sd]
+                raise Exception('Unexpected rows in FILE1: {}'.format(extras))
+            elif extra_row_action == 'ignore':
+                pass
+            else:
+                raise Exception('Unknown extra_row_action: {}'.format(extra_row_action))
 
-        s0 = sorted(row0_g, key=key)
-        s1 = sorted(row1_g, key=key)
-
-        g0 = iter(s0)
-        g1 = iter(s1)
-
-        row0 = next(g0)
-        row1 = next(g1)
-
-        while True:
-            # Find the next row to update.
-            while key(row0) < key(row1):
-                # No updates for this row.
-                yield row0
-                row0 = next(g0)
-            while key(row0) > key(row1):
+        for key0, row0 in d0.iteritems():
+            if d1.has_key(key0):
+                row1 = d1[key0]
+                row0.update({k: row1[k] for k in fieldnames2 if k in fn1})
+            else:
                 if extra_row_action == 'die':
-                    raise Exception('Unexpected row in FILE1: {}'.format(row1))
+                    raise Exception('Unexpected row in FILE1: {}'.format(extras))
                 elif extra_row_action == 'ignore':
                     pass
-                row1 = next(g1)
-            if key(row0) == key(row1):
-                row0.update({k: v for k, v in row1.iteritems() if k in fieldnames2})
-            else:
-                # No updates for this row.
-                pass
+                else:
+                    raise Exception('Unknown extra_row_action: {}'.format(extra_row_action))
             yield row0
-            row0 = next(g0)
 
     return {'fieldnames': fieldnames2, 'generator': g()}
             
