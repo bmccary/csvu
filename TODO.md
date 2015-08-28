@@ -6,6 +6,8 @@
 
 3. README examples.
 
+4. Tests.
+
 ## Utils
 
 1. tr
