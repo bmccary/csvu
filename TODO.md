@@ -1,19 +1,22 @@
 # TODO
 
-1. headless0, headless1
+    0. Interleave coerce and eval in
+        csvu-row-reduce.
 
-2. Better csvu-* -h help.
+    1. headless0, headless1
 
-3. README examples.
+    2. Better csvu-* -h help.
 
-4. Tests.
+    3. README examples.
+
+    4. Tests.
 
 ## Utils
 
-1. tr
-    Needs to be able to delete.
+    1. tr
+        Needs to be able to delete.
 
-2. uniq
+    2. uniq
 
-3. printf
+    3. printf
 

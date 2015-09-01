@@ -77,8 +77,33 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
 
     def g():
         key = itemgetter(keyname)
-        d0 = {key(row0): row0 for row0 in row0_g}
-        d1 = {key(row1): row1 for row1 in row1_g}
+
+        rows0 = list(row0_g)
+        keys0 = set()
+        dups0 = set()
+        for row0 in rows0:
+            k = key(row0)
+            if k in keys0:
+                dups0.add(k)
+            else:
+                keys0.add(k)
+        if dups0:
+            raise Exception('Duplicate keys in FILE0: {}'.format(sorted(dups0)))
+
+        rows1 = list(row1_g)
+        keys1 = set()
+        dups1 = set()
+        for row1 in rows1:
+            k = key(row1)
+            if k in keys1:
+                dups1.add(k)
+            else:
+                keys1.add(k)
+        if dups1:
+            raise Exception('Duplicate keys in FILE1: {}'.format(sorted(dups1)))
+            
+        d0 = {key(row0): row0 for row0 in rows0}
+        d1 = {key(row1): row1 for row1 in rows1}
         s0 = d0.viewkeys()
         s1 = d1.viewkeys()
         sd = s1 - s0
@@ -93,7 +118,7 @@ def filter_d(row0_g, row1_g, fieldnames0, fieldnames1, keyname,
         for key0, row0 in d0.iteritems():
             if d1.has_key(key0):
                 row1 = d1[key0]
-                row0.update({k: row1[k] for k in fieldnames2 if k in fn1})
+                row0.update({k: row1[k] for k in fieldnames2 if (k in fn1) and (k != keyname) and row1[k].strip()})
             yield row0
 
     return {'fieldnames': fieldnames2, 'generator': g()}
