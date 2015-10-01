@@ -11,6 +11,8 @@
 
     4. Tests.
 
+    5. Blank files should not crash.
+
 ## Utils
 
     1. tr

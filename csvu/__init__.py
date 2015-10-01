@@ -7,12 +7,13 @@ from prettytable import PrettyTable
 
 DELIMITERS = ',\t|'
 
-def reader_make(fname='-', dialect='sniff', headless=False):
+def reader_make(file_or_path='-', dialect='sniff', headless=False):
     """
     Make a reader for CSV files.
 
-    :param fname: 
+    :param file_or_name: 
         The file to read from. Default is '-', which denotes STDIN.
+        Can be path to a file or a file-like object.
 
     :param dialect: 
         The CSV dialect. Default is 'sniff', which (usually) automatically
@@ -32,10 +33,12 @@ def reader_make(fname='-', dialect='sniff', headless=False):
     # File
     #
 
-    f = sys.stdin
-
-    if fname != '-':
-        f = open(fname, 'r')
+    if file_or_name == '-':
+        f = sys.stdin
+    elif isinstance(file_or_name, basestring):
+        f = open(file_or_name, 'r')
+    else:
+        f = file_or_name
 
     #
     # Dialect
@@ -72,16 +75,18 @@ def reader_make(fname='-', dialect='sniff', headless=False):
                 yield row
         return {'dialect': dialect, 'fieldnames': fieldnames, 'reader': gen()}
 
-def writer_make(fieldnames, fname='-', dialect='excel', headless=False):
+def writer_make(fieldnames, file_or_path='-', dialect='excel', headless=False):
 
     #
     # File
     #
 
-    f = sys.stdout
-
-    if fname != '-':
-        f = open(fname, 'w')
+    if file_or_name == '-':
+        f = sys.stdout
+    elif isinstance(file_or_name, basestring):
+        f = open(file_or_name, 'w')
+    else:
+        f = file_or_name
 
     #
     # Writer

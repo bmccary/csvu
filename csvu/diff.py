@@ -135,13 +135,13 @@ def cli():
     try:
 
         reader0_d = reader_make(
-                        fname=args.file0,
+                        file_or_path=args.file0,
                         dialect=args.dialect0,
                         headless=args.headless,
                     )
 
         reader1_d = reader_make(
-                        fname=args.file1,
+                        file_or_path=args.file1,
                         dialect=args.dialect1,
                         headless=args.headless,
                     )
@@ -180,7 +180,7 @@ def cli():
             dialect2 = dialect1
 
         writer_f = writer_make(
-                        fname=args.file2,
+                        file_or_path=args.file2,
                         dialect=dialect2,
                         headless=args.headless,
                         fieldnames=fieldnames2,

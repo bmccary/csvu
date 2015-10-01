@@ -89,7 +89,7 @@ def cli():
         g          = d['generator']
 
         writer_f = writer_make(
-                        fname=args.file1,
+                        file_or_path=args.file1,
                         dialect=args.dialect1,
                         headless=True,
                         fieldnames=fieldnames,

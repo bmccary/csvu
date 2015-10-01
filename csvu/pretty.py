@@ -27,7 +27,7 @@ def cli():
     try:
 
         reader_d = reader_make(
-                        fname=args.file0,
+                        file_or_path=args.file0,
                         dialect=args.dialect0,
                         headless=args.headless,
                     )
@@ -39,7 +39,7 @@ def cli():
         dialect1 = 'pretty'
 
         writer_f = writer_make(
-                        fname=args.file1,
+                        file_or_path=args.file1,
                         dialect=dialect1,
                         headless=args.headless,
                         fieldnames=fieldnames,
