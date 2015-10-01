@@ -11,7 +11,7 @@ def reader_make(file_or_path='-', dialect='sniff', headless=False):
     """
     Make a reader for CSV files.
 
-    :param file_or_name: 
+    :param file_or_path: 
         The file to read from. Default is '-', which denotes STDIN.
         Can be path to a file or a file-like object.
 
@@ -33,12 +33,12 @@ def reader_make(file_or_path='-', dialect='sniff', headless=False):
     # File
     #
 
-    if file_or_name == '-':
+    if file_or_path == '-':
         f = sys.stdin
-    elif isinstance(file_or_name, basestring):
-        f = open(file_or_name, 'r')
+    elif isinstance(file_or_path, basestring):
+        f = open(file_or_path, 'r')
     else:
-        f = file_or_name
+        f = file_or_path
 
     #
     # Dialect
@@ -81,12 +81,12 @@ def writer_make(fieldnames, file_or_path='-', dialect='excel', headless=False):
     # File
     #
 
-    if file_or_name == '-':
+    if file_or_path == '-':
         f = sys.stdout
-    elif isinstance(file_or_name, basestring):
-        f = open(file_or_name, 'w')
+    elif isinstance(file_or_path, basestring):
+        f = open(file_or_path, 'w')
     else:
-        f = file_or_name
+        f = file_or_path
 
     #
     # Writer
